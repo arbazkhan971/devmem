@@ -23,7 +23,7 @@ func TestMigrate_CreatesAllTables(t *testing.T) {
 		"features", "sessions", "facts", "notes",
 		"plans", "plan_steps", "commits", "semantic_changes",
 		"memory_links", "summaries", "consolidation_state",
-		"schema_version",
+		"schema_version", "files_touched",
 	}
 	for _, table := range expectedTables {
 		var name string
@@ -113,8 +113,8 @@ func TestMigrate_VersionTracking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query version: %v", err)
 	}
-	if maxVersion < 2 {
-		t.Errorf("expected version >= 2, got %d", maxVersion)
+	if maxVersion < 3 {
+		t.Errorf("expected version >= 3, got %d", maxVersion)
 	}
 }
 

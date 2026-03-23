@@ -102,3 +102,13 @@ CREATE VIRTUAL TABLE plans_fts USING fts5(title, content, content='plans', conte
 CREATE VIRTUAL TABLE notes_trigram USING fts5(content, content='notes', content_rowid='rowid', tokenize='trigram');
 CREATE VIRTUAL TABLE commits_trigram USING fts5(message, content='commits', content_rowid='rowid', tokenize='trigram');
 `
+
+const schemaV3 = `
+CREATE TABLE IF NOT EXISTS files_touched (
+    id TEXT PRIMARY KEY, feature_id TEXT NOT NULL, session_id TEXT,
+    path TEXT NOT NULL, action TEXT DEFAULT 'modified',
+    first_seen TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(feature_id, session_id, path));
+CREATE INDEX IF NOT EXISTS idx_files_touched_feature ON files_touched(feature_id);
+CREATE INDEX IF NOT EXISTS idx_files_touched_session ON files_touched(session_id);
+`

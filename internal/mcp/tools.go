@@ -691,3 +691,22 @@ func (s *DevMemServer) handleBriefing(_ context.Context, _ mcplib.CallToolReques
 	ctxData.SessionHistory = sessions
 	return mcplib.NewToolResultText(formatBriefing(ctxData, feature)), nil
 }
+
+func (s *DevMemServer) handleTrackFiles(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	feature, errRes := s.requireActiveFeature()
+	if errRes != nil {
+		return errRes, nil
+	}
+	files := getStringSliceArg(req, "files")
+	if len(files) == 0 {
+		return mcplib.NewToolResultError("Parameter 'files' is required and must be a non-empty array of file paths"), nil
+	}
+	action := getStringArg(req, "action", "modified")
+	tracked := 0
+	for _, f := range files {
+		if err := s.store.TrackFile(feature.ID, s.currentSessionID, f, action); err == nil {
+			tracked++
+		}
+	}
+	return respond("# Files tracked\n\n- Action: %s\n- Files recorded: %d/%d\n- Session: %s", action, tracked, len(files), s.currentSessionID[:min(8, len(s.currentSessionID))])
+}

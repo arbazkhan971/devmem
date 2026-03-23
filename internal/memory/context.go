@@ -29,7 +29,7 @@ type tierCfg struct {
 
 var tiers = map[string]tierCfg{
 	"compact":  {commits: 1},
-	"standard": {commits: 5, notes: 3, facts: true},
+	"standard": {commits: 5, notes: 3, facts: true, files: true},
 	"detailed": {commits: 100, notes: 100, facts: true, sessions: 100, links: true, files: true},
 }
 
@@ -80,6 +80,22 @@ func (s *Store) GetContext(featureID, tier string, asOf *time.Time) (*Context, e
 			var f string
 			return f, rows.Scan(&f)
 		})
+		// Merge in files from the files_touched table
+		tracked := scanRows(r, `SELECT DISTINCT path FROM files_touched WHERE feature_id = ? ORDER BY first_seen DESC`, []any{featureID}, func(rows *sql.Rows) (string, error) {
+			var f string
+			return f, rows.Scan(&f)
+		})
+		if len(tracked) > 0 {
+			seen := make(map[string]bool, len(ctx.FilesTouched))
+			for _, f := range ctx.FilesTouched {
+				seen[f] = true
+			}
+			for _, f := range tracked {
+				if !seen[f] {
+					ctx.FilesTouched = append(ctx.FilesTouched, f)
+				}
+			}
+		}
 	}
 	return ctx, nil
 }

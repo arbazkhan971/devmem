@@ -180,6 +180,14 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 			Handler: s.handleAnalytics,
 		},
 		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_track_files",
+				mcplib.WithDescription("Record files modified in current session. Pass array of file paths."),
+				mcplib.WithArray("files", mcplib.Description("Array of file paths that were modified"), mcplib.Required()),
+				mcplib.WithString("action", mcplib.Description("Type of file change: modified, added, or deleted"), mcplib.Enum("modified", "added", "deleted")),
+			),
+			Handler: s.handleTrackFiles,
+		},
+		server.ServerTool{
 			Tool: mcplib.NewTool("devmem_generate_rules",
 				mcplib.WithDescription("Generate an AGENTS.md file from memory. Creates a universal rules file that every AI coding CLI reads."),
 				mcplib.WithString("output", mcplib.Description("Output path (default: AGENTS.md at git root)")),

@@ -23,6 +23,11 @@ func Migrate(db *DB) error {
 			return fmt.Errorf("apply v2 migration: %w", err)
 		}
 	}
+	if currentVersion < 3 {
+		if err := applyV3(w); err != nil {
+			return fmt.Errorf("apply v3 migration: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -55,6 +60,21 @@ func applyV2(w *sql.DB) error {
 		return fmt.Errorf("add summary column: %w", err)
 	}
 	if _, err := tx.Exec("INSERT OR IGNORE INTO schema_version (version) VALUES (2)"); err != nil {
+		return fmt.Errorf("record version: %w", err)
+	}
+	return tx.Commit()
+}
+
+func applyV3(w *sql.DB) error {
+	tx, err := w.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	if err := execStatements(tx, schemaV3, false); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("INSERT OR IGNORE INTO schema_version (version) VALUES (3)"); err != nil {
 		return fmt.Errorf("record version: %w", err)
 	}
 	return tx.Commit()
