@@ -1,8 +1,10 @@
 package consolidation_test
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/arbaz/devmem/internal/consolidation"
 	"github.com/arbaz/devmem/internal/storage"
@@ -231,5 +233,187 @@ func TestApplyDecay_CountsStaleNotes(t *testing.T) {
 	}
 	if count2 != 0 {
 		t.Errorf("expected 0 stale notes after linking, got %d", count2)
+	}
+}
+
+func TestStartStop_DoesNotPanic(t *testing.T) {
+	db := newTestDB(t)
+	cfg := consolidation.DefaultConfig()
+	cfg.IdleTimeout = 10 * time.Minute // long timeout to avoid firing
+
+	engine := consolidation.NewEngine(db, cfg)
+
+	// Start, stop, start, stop — none should panic
+	engine.Start()
+	engine.Stop()
+	engine.Start()
+	engine.Stop()
+
+	// Double stop should not panic
+	engine.Stop()
+	engine.Stop()
+}
+
+func TestRunOnce_WithContradictions(t *testing.T) {
+	db := newTestDB(t)
+	engine := consolidation.NewEngine(db, consolidation.DefaultConfig())
+
+	featureID := "feat-contra-test"
+	_, err := db.Writer().Exec(
+		`INSERT INTO features (id, name, description) VALUES (?, ?, ?)`,
+		featureID, "contradiction-test", "test",
+	)
+	if err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+
+	// Insert two conflicting facts (same subject+predicate, different objects)
+	now := time.Now().UTC()
+	oldTime := now.Add(-time.Hour).Format(time.DateTime)
+	newTime := now.Format(time.DateTime)
+
+	_, err = db.Writer().Exec(
+		`INSERT INTO facts (id, feature_id, subject, predicate, object, valid_at, recorded_at, confidence)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, 1.0)`,
+		"fact-old-1", featureID, "framework", "uses", "Django", oldTime, oldTime,
+	)
+	if err != nil {
+		t.Fatalf("insert old fact: %v", err)
+	}
+	_, err = db.Writer().Exec(
+		`INSERT INTO facts (id, feature_id, subject, predicate, object, valid_at, recorded_at, confidence)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, 1.0)`,
+		"fact-new-1", featureID, "framework", "uses", "FastAPI", newTime, newTime,
+	)
+	if err != nil {
+		t.Fatalf("insert new fact: %v", err)
+	}
+
+	// Verify 2 active facts before RunOnce
+	var countBefore int
+	db.Reader().QueryRow(`SELECT COUNT(*) FROM facts WHERE invalid_at IS NULL AND feature_id = ?`, featureID).Scan(&countBefore)
+	if countBefore != 2 {
+		t.Fatalf("expected 2 active facts before RunOnce, got %d", countBefore)
+	}
+
+	// RunOnce should resolve the contradiction
+	if err := engine.RunOnce(); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	// After RunOnce, only the newer fact should remain active
+	var countAfter int
+	db.Reader().QueryRow(`SELECT COUNT(*) FROM facts WHERE invalid_at IS NULL AND feature_id = ?`, featureID).Scan(&countAfter)
+	if countAfter != 1 {
+		t.Errorf("expected 1 active fact after RunOnce resolved contradiction, got %d", countAfter)
+	}
+
+	// Verify the remaining active fact is the newer one
+	var activeObject string
+	db.Reader().QueryRow(
+		`SELECT object FROM facts WHERE invalid_at IS NULL AND feature_id = ? AND subject = 'framework'`, featureID,
+	).Scan(&activeObject)
+	if activeObject != "FastAPI" {
+		t.Errorf("expected active fact object 'FastAPI', got %q", activeObject)
+	}
+
+	// Verify consolidation state was updated
+	state, err := engine.GetState()
+	if err != nil {
+		t.Fatalf("GetState: %v", err)
+	}
+	if state.LastRunAt == "" {
+		t.Error("expected non-empty LastRunAt after RunOnce")
+	}
+}
+
+func TestRunOnce_WithEnoughNotesTriggersSummarization(t *testing.T) {
+	db := newTestDB(t)
+	engine := consolidation.NewEngine(db, consolidation.DefaultConfig())
+
+	featureID := "feat-summ-test"
+	_, err := db.Writer().Exec(
+		`INSERT INTO features (id, name, description) VALUES (?, ?, ?)`,
+		featureID, "summarization-test", "test",
+	)
+	if err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+
+	// Insert 25 notes (above the MaxUnsummarized=20 threshold)
+	for i := 0; i < 25; i++ {
+		insertTestNote(t, db, featureID, fmt.Sprintf("testing summarization trigger note number %d with enough content", i), "note")
+	}
+
+	// Verify we have notes before
+	var noteCount int
+	db.Reader().QueryRow(`SELECT COUNT(*) FROM notes WHERE feature_id = ?`, featureID).Scan(&noteCount)
+	if noteCount != 25 {
+		t.Fatalf("expected 25 notes, got %d", noteCount)
+	}
+
+	// RunOnce should trigger summarization
+	if err := engine.RunOnce(); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	// Verify at least one summary was created
+	var summaryCount int
+	db.Reader().QueryRow(
+		`SELECT COUNT(*) FROM summaries WHERE scope = ?`, "feature:"+featureID,
+	).Scan(&summaryCount)
+	if summaryCount < 1 {
+		t.Errorf("expected at least 1 summary after RunOnce with 25 notes, got %d", summaryCount)
+	}
+}
+
+func TestGetState_ReflectsCorrectCounts(t *testing.T) {
+	db := newTestDB(t)
+	engine := consolidation.NewEngine(db, consolidation.DefaultConfig())
+
+	featureID := "feat-state-count"
+	_, err := db.Writer().Exec(
+		`INSERT INTO features (id, name, description) VALUES (?, ?, ?)`,
+		featureID, "state-count-test", "test",
+	)
+	if err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+
+	// Insert some notes (these will be unsummarized)
+	for i := 0; i < 5; i++ {
+		insertTestNote(t, db, featureID, fmt.Sprintf("state count test note %d", i), "note")
+	}
+
+	// Run consolidation to update state
+	if err := engine.RunOnce(); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	state, err := engine.GetState()
+	if err != nil {
+		t.Fatalf("GetState: %v", err)
+	}
+
+	// Since we have 5 notes and no summaries, unsummarized should be 5
+	if state.UnsummarizedCount != 5 {
+		t.Errorf("expected unsummarized count 5, got %d", state.UnsummarizedCount)
+	}
+
+	// No contradictions, so conflict count should be 0
+	if state.ConflictCount != 0 {
+		t.Errorf("expected conflict count 0, got %d", state.ConflictCount)
+	}
+
+	// Entropy should be > 0 since we have unsummarized notes
+	if state.EntropyScore <= 0 {
+		t.Errorf("expected positive entropy score with unsummarized notes, got %f", state.EntropyScore)
+	}
+
+	if state.LastRunAt == "" {
+		t.Error("expected non-empty LastRunAt")
+	}
+	if state.NextTriggerAt == "" {
+		t.Error("expected non-empty NextTriggerAt")
 	}
 }

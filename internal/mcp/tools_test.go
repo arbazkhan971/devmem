@@ -392,3 +392,186 @@ func TestHandleRemember_NoActiveFeature(t *testing.T) {
 		t.Errorf("remember without active feature should return error, got:\n%s", text)
 	}
 }
+
+func TestHandleSync_NoActiveFeature(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Call sync without starting a feature
+	res, err := srv.handleSync(ctx, newReq("devmem_sync", nil))
+	if err != nil {
+		t.Fatalf("handleSync error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "No active feature") {
+		t.Errorf("sync without active feature should return error about no active feature, got:\n%s", text)
+	}
+}
+
+func TestHandleGetContext_CompactTier(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Start a feature
+	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name":        "context-compact-test",
+		"description": "Testing compact tier",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature error: %v", err)
+	}
+
+	// Add some data
+	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+		"content": "The API uses REST with JSON payloads",
+		"type":    "decision",
+	}))
+	if err != nil {
+		t.Fatalf("handleRemember error: %v", err)
+	}
+
+	// Get compact context
+	res, err := srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{
+		"tier": "compact",
+	}))
+	if err != nil {
+		t.Fatalf("handleGetContext compact error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "context-compact-test") {
+		t.Errorf("compact context should contain feature name, got:\n%s", text)
+	}
+}
+
+func TestHandleGetContext_StandardTier(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Start a feature
+	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name":        "context-standard-test",
+		"description": "Testing standard tier",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature error: %v", err)
+	}
+
+	// Add a decision note
+	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+		"content": "Using PostgreSQL for the database",
+		"type":    "decision",
+	}))
+	if err != nil {
+		t.Fatalf("handleRemember error: %v", err)
+	}
+
+	// Get standard context
+	res, err := srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{
+		"tier": "standard",
+	}))
+	if err != nil {
+		t.Fatalf("handleGetContext standard error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "context-standard-test") {
+		t.Errorf("standard context should contain feature name, got:\n%s", text)
+	}
+}
+
+func TestHandleGetContext_DetailedTier(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Start a feature
+	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name":        "context-detailed-test",
+		"description": "Testing detailed tier",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature error: %v", err)
+	}
+
+	// Get detailed context
+	res, err := srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{
+		"tier": "detailed",
+	}))
+	if err != nil {
+		t.Fatalf("handleGetContext detailed error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "context-detailed-test") {
+		t.Errorf("detailed context should contain feature name, got:\n%s", text)
+	}
+	// Detailed tier includes session history
+	if !strings.Contains(text, "Session History") {
+		t.Errorf("detailed context should include session history, got:\n%s", text)
+	}
+}
+
+func TestHandleGetContext_NoActiveFeature(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Get context without an active feature
+	res, err := srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{
+		"tier": "standard",
+	}))
+	if err != nil {
+		t.Fatalf("handleGetContext error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "No active feature") {
+		t.Errorf("get_context without active feature should error, got:\n%s", text)
+	}
+}
+
+func TestHandleSwitchFeature_CreatesNewSession(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Create two features
+	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name": "switch-feat-a",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature a error: %v", err)
+	}
+
+	_, err = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name": "switch-feat-b",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature b error: %v", err)
+	}
+
+	// Switch back to feat-a
+	res, err := srv.handleSwitchFeature(ctx, newReq("devmem_switch_feature", map[string]interface{}{
+		"name": "switch-feat-a",
+	}))
+	if err != nil {
+		t.Fatalf("handleSwitchFeature error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "Switched to feature: switch-feat-a") {
+		t.Errorf("switch result should contain feature name, got:\n%s", text)
+	}
+	if !strings.Contains(text, "active") {
+		t.Errorf("switch result should show active status, got:\n%s", text)
+	}
+
+	// Verify the status shows the correct feature context
+	statusRes, err := srv.handleStatus(ctx, newReq("devmem_status", nil))
+	if err != nil {
+		t.Fatalf("handleStatus error: %v", err)
+	}
+	statusText := resultText(t, statusRes)
+	if !strings.Contains(statusText, "switch-feat-a") {
+		t.Errorf("status after switch should show switch-feat-a as active, got:\n%s", statusText)
+	}
+}
