@@ -64,22 +64,21 @@ func (s *DevMemServer) handleStatus(ctx context.Context, req mcplib.CallToolRequ
 	var b strings.Builder
 
 	projectName := git.ProjectName(s.gitRoot)
-	b.WriteString(fmt.Sprintf("# devmem status — %s\n\n", projectName))
+	b.WriteString(fmt.Sprintf("%s | ", projectName))
 
 	// Active feature
 	feature, err := s.store.GetActiveFeature()
 	if err != nil {
-		b.WriteString("**Active feature:** none\n\n")
+		b.WriteString("feat: none\n")
 	} else {
-		b.WriteString(fmt.Sprintf("**Active feature:** %s\n", feature.Name))
-		b.WriteString(fmt.Sprintf("  - Status: %s\n", feature.Status))
+		b.WriteString(fmt.Sprintf("%s [%s]", feature.Name, feature.Status))
 		if feature.Branch != "" {
-			b.WriteString(fmt.Sprintf("  - Branch: %s\n", feature.Branch))
+			b.WriteString(fmt.Sprintf(" branch:%s", feature.Branch))
 		}
+		b.WriteString("\n")
 		if feature.Description != "" {
-			b.WriteString(fmt.Sprintf("  - Description: %s\n", feature.Description))
+			b.WriteString(fmt.Sprintf("%s\n", feature.Description))
 		}
-		b.WriteString(fmt.Sprintf("  - Last active: %s\n\n", feature.LastActive))
 
 		// Active plan
 		plan, err := s.planManager.GetActivePlan(feature.ID)
@@ -91,16 +90,13 @@ func (s *DevMemServer) handleStatus(ctx context.Context, req mcplib.CallToolRequ
 					completed++
 				}
 			}
-			b.WriteString(fmt.Sprintf("**Active plan:** %s\n", plan.Title))
-			b.WriteString(fmt.Sprintf("  - Progress: %d/%d steps completed\n\n", completed, len(steps)))
-		} else {
-			b.WriteString("**Active plan:** none\n\n")
+			b.WriteString(fmt.Sprintf("plan: %s %d/%d steps\n", plan.Title, completed, len(steps)))
 		}
 	}
 
 	// Features count
 	features, err := s.store.ListFeatures("all")
-	if err == nil {
+	if err == nil && len(features) > 0 {
 		active, paused, done := 0, 0, 0
 		for _, f := range features {
 			switch f.Status {
@@ -112,12 +108,12 @@ func (s *DevMemServer) handleStatus(ctx context.Context, req mcplib.CallToolRequ
 				done++
 			}
 		}
-		b.WriteString(fmt.Sprintf("**Features:** %d total (%d active, %d paused, %d done)\n\n", len(features), active, paused, done))
+		b.WriteString(fmt.Sprintf("features: %d (%d active, %d paused, %d done)\n", len(features), active, paused, done))
 	}
 
 	// Current session
 	if s.currentSessionID != "" {
-		b.WriteString(fmt.Sprintf("**Session:** %s (active)\n", s.currentSessionID[:8]))
+		b.WriteString(fmt.Sprintf("session: %s\n", s.currentSessionID[:8]))
 	}
 
 	return mcplib.NewToolResultText(b.String()), nil
@@ -133,20 +129,19 @@ func (s *DevMemServer) handleListFeatures(ctx context.Context, req mcplib.CallTo
 	}
 
 	if len(features) == 0 {
-		return mcplib.NewToolResultText("No features found."), nil
+		return mcplib.NewToolResultText(""), nil
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("# Features (%s)\n\n", filter))
 	for _, f := range features {
-		b.WriteString(fmt.Sprintf("## %s [%s]\n", f.Name, f.Status))
-		if f.Description != "" {
-			b.WriteString(fmt.Sprintf("  %s\n", f.Description))
-		}
+		b.WriteString(fmt.Sprintf("%s [%s]", f.Name, f.Status))
 		if f.Branch != "" {
-			b.WriteString(fmt.Sprintf("  Branch: %s\n", f.Branch))
+			b.WriteString(fmt.Sprintf(" branch:%s", f.Branch))
 		}
-		b.WriteString(fmt.Sprintf("  Last active: %s\n\n", f.LastActive))
+		if f.Description != "" {
+			b.WriteString(fmt.Sprintf(" %s", f.Description))
+		}
+		b.WriteString("\n")
 	}
 
 	return mcplib.NewToolResultText(b.String()), nil
@@ -185,19 +180,18 @@ func (s *DevMemServer) handleStartFeature(ctx context.Context, req mcplib.CallTo
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("# Feature %s: %s\n\n", action, feature.Name))
-	b.WriteString(fmt.Sprintf("- Status: %s\n", feature.Status))
+	b.WriteString(fmt.Sprintf("feat %s: %s [%s]", action, feature.Name, feature.Status))
 	if feature.Branch != "" {
-		b.WriteString(fmt.Sprintf("- Branch: %s\n", feature.Branch))
+		b.WriteString(fmt.Sprintf(" branch:%s", feature.Branch))
 	}
+	b.WriteString("\n")
 	if feature.Description != "" {
-		b.WriteString(fmt.Sprintf("- Description: %s\n", feature.Description))
+		b.WriteString(fmt.Sprintf("%s\n", feature.Description))
 	}
 
 	// Get compact context
 	ctxData, err := s.store.GetContext(feature.ID, "compact", nil)
 	if err == nil {
-		b.WriteString("\n---\n")
 		b.WriteString(formatContext(ctxData))
 	}
 
@@ -229,16 +223,15 @@ func (s *DevMemServer) handleSwitchFeature(ctx context.Context, req mcplib.CallT
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("# Switched to feature: %s\n\n", feature.Name))
-	b.WriteString(fmt.Sprintf("- Status: %s\n", feature.Status))
+	b.WriteString(fmt.Sprintf("Switched to feature: %s [%s]", feature.Name, feature.Status))
 	if feature.Branch != "" {
-		b.WriteString(fmt.Sprintf("- Branch: %s\n", feature.Branch))
+		b.WriteString(fmt.Sprintf(" branch:%s", feature.Branch))
 	}
+	b.WriteString("\n")
 
 	// Get compact context
 	ctxData, err := s.store.GetContext(feature.ID, "compact", nil)
 	if err == nil {
-		b.WriteString("\n---\n")
 		b.WriteString(formatContext(ctxData))
 	}
 
@@ -302,26 +295,25 @@ func (s *DevMemServer) handleSync(ctx context.Context, req mcplib.CallToolReques
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("# Sync complete\n\n"))
-	b.WriteString(fmt.Sprintf("**New commits:** %d\n\n", result.NewCommits))
+	b.WriteString(fmt.Sprintf("synced %d new commits\n", result.NewCommits))
 
 	// Match commits against plan steps
 	planUpdates := 0
 	for _, c := range result.Commits {
-		b.WriteString(fmt.Sprintf("- `%s` %s [%s]\n", c.Hash[:7], c.Message, c.IntentType))
+		b.WriteString(fmt.Sprintf("%s %s [%s]\n", c.Hash[:7], c.Message, c.IntentType))
 
 		// Try to match commit to plan steps
 		matchedStep, err := s.planManager.MatchCommitToSteps(c.Message, feature.ID)
 		if err == nil && matchedStep != nil {
 			_ = s.planManager.UpdateStepStatus(matchedStep.ID, "completed")
 			_ = s.planManager.LinkCommitToStep(matchedStep.ID, c.Hash)
-			b.WriteString(fmt.Sprintf("  -> Completed plan step: %s\n", matchedStep.Title))
+			b.WriteString(fmt.Sprintf("  -> completed step: %s\n", matchedStep.Title))
 			planUpdates++
 		}
 	}
 
 	if planUpdates > 0 {
-		b.WriteString(fmt.Sprintf("\n**Plan steps completed:** %d\n", planUpdates))
+		b.WriteString(fmt.Sprintf("plan steps completed: %d\n", planUpdates))
 	}
 
 	return mcplib.NewToolResultText(b.String()), nil
@@ -350,9 +342,7 @@ func (s *DevMemServer) handleRemember(ctx context.Context, req mcplib.CallToolRe
 	linksCreated, _ := s.store.AutoLink(note.ID, "note", content)
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("# Remembered (%s)\n\n", noteType))
-	b.WriteString(fmt.Sprintf("- ID: %s\n", note.ID[:8]))
-	b.WriteString(fmt.Sprintf("- Links created: %d\n", linksCreated))
+	b.WriteString(fmt.Sprintf("Remembered (%s) id:%s Links created: %d\n", noteType, note.ID[:8], linksCreated))
 
 	// Check if content looks like a plan
 	if plans.IsPlanLike(content) {
@@ -364,7 +354,7 @@ func (s *DevMemServer) handleRemember(ctx context.Context, req mcplib.CallToolRe
 				content, "devmem_remember", steps,
 			)
 			if err == nil {
-				b.WriteString(fmt.Sprintf("\n**Auto-promoted to plan:** %s (%d steps)\n", plan.Title, len(steps)))
+				b.WriteString(fmt.Sprintf("Auto-promoted to plan: %s (%d steps)\n", plan.Title, len(steps)))
 			}
 		}
 	}
@@ -396,19 +386,18 @@ func (s *DevMemServer) handleSearch(ctx context.Context, req mcplib.CallToolRequ
 	}
 
 	if len(results) == 0 {
-		return mcplib.NewToolResultText(fmt.Sprintf("No results found for: %s", query)), nil
+		return mcplib.NewToolResultText(fmt.Sprintf("No results for: %s", query)), nil
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("# Search results for: %s\n\n", query))
-	b.WriteString(fmt.Sprintf("Found %d results (scope: %s)\n\n", len(results), scope))
+	b.WriteString(fmt.Sprintf("Search results for: %s (%d, scope:%s)\n", query, len(results), scope))
 
 	for i, r := range results {
-		b.WriteString(fmt.Sprintf("## %d. [%s] %s\n", i+1, r.Type, truncate(r.Content, 120)))
+		b.WriteString(fmt.Sprintf("%d. [%s] %s", i+1, r.Type, truncate(r.Content, 120)))
 		if r.FeatureName != "" {
-			b.WriteString(fmt.Sprintf("  Feature: %s\n", r.FeatureName))
+			b.WriteString(fmt.Sprintf(" feat:%s", r.FeatureName))
 		}
-		b.WriteString(fmt.Sprintf("  Relevance: %.2f | Created: %s\n\n", r.Relevance, r.CreatedAt))
+		b.WriteString(fmt.Sprintf(" rel:%.2f\n", r.Relevance))
 	}
 
 	return mcplib.NewToolResultText(b.String()), nil
@@ -467,7 +456,7 @@ func (s *DevMemServer) handleSavePlan(ctx context.Context, req mcplib.CallToolRe
 				completed++
 			}
 		}
-		supersededInfo = fmt.Sprintf("\n**Superseded:** %s (%d/%d steps completed)\n", oldPlan.Title, completed, len(oldSteps))
+		supersededInfo = fmt.Sprintf("superseded: %s (%d/%d done)\n", oldPlan.Title, completed, len(oldSteps))
 	}
 
 	plan, err := s.planManager.CreatePlan(feature.ID, s.currentSessionID, title, content, "devmem_save_plan", steps)
@@ -476,17 +465,14 @@ func (s *DevMemServer) handleSavePlan(ctx context.Context, req mcplib.CallToolRe
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("# Plan saved: %s\n\n", plan.Title))
-	b.WriteString(fmt.Sprintf("- ID: %s\n", plan.ID[:8]))
-	b.WriteString(fmt.Sprintf("- Steps: %d\n", len(steps)))
+	b.WriteString(fmt.Sprintf("Plan saved: %s id:%s Steps: %d\n", plan.Title, plan.ID[:8], len(steps)))
 
 	if supersededInfo != "" {
 		b.WriteString(supersededInfo)
 	}
 
-	b.WriteString("\n**Steps:**\n")
 	for i, st := range steps {
-		b.WriteString(fmt.Sprintf("  %d. %s\n", i+1, st.Title))
+		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, st.Title))
 	}
 
 	return mcplib.NewToolResultText(b.String()), nil
@@ -520,7 +506,7 @@ func (s *DevMemServer) handleImportSession(ctx context.Context, req mcplib.CallT
 	s.currentSessionID = sess.ID
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("# Importing session into: %s\n\n", featureName))
+	b.WriteString(fmt.Sprintf("Importing session into: %s\n", featureName))
 
 	imported := 0
 
@@ -534,7 +520,7 @@ func (s *DevMemServer) handleImportSession(ctx context.Context, req mcplib.CallT
 		notes := getStringSliceArg(req, nt.arg)
 		imported += importNotes(s.store, feature.ID, sess.ID, notes, nt.noteType)
 		if len(notes) > 0 {
-			b.WriteString(fmt.Sprintf("- %s imported: %d\n", nt.label, len(notes)))
+			b.WriteString(fmt.Sprintf("%s imported: %d\n", nt.label, len(notes)))
 		}
 	}
 
@@ -560,7 +546,7 @@ func (s *DevMemServer) handleImportSession(ctx context.Context, req mcplib.CallT
 				}
 			}
 			if factCount > 0 {
-				b.WriteString(fmt.Sprintf("- Facts imported: %d\n", factCount))
+				b.WriteString(fmt.Sprintf("Facts imported: %d\n", factCount))
 			}
 		}
 	}
@@ -599,7 +585,7 @@ func (s *DevMemServer) handleImportSession(ctx context.Context, req mcplib.CallT
 								}
 							}
 						}
-						b.WriteString(fmt.Sprintf("- Plan imported: %s (%d steps, %d completed)\n", planTitle, len(steps), len(completedStepTitles)))
+						b.WriteString(fmt.Sprintf("Plan imported: %s (%d steps, %d completed)\n", planTitle, len(steps), len(completedStepTitles)))
 						imported += len(steps)
 					}
 				}
@@ -618,8 +604,7 @@ func (s *DevMemServer) handleImportSession(ctx context.Context, req mcplib.CallT
 		}
 	}
 
-	b.WriteString(fmt.Sprintf("\n**Total imported:** %d items, %d links created\n", imported, linksCreated))
-	b.WriteString("\nMemory is now bootstrapped. Future sessions will have this context.")
+	b.WriteString(fmt.Sprintf("total: %d items, %d links\n", imported, linksCreated))
 
 	return mcplib.NewToolResultText(b.String()), nil
 }
@@ -669,12 +654,10 @@ func (s *DevMemServer) handleEndSession(ctx context.Context, req mcplib.CallTool
 	s.currentSessionID = ""
 
 	var b strings.Builder
-	b.WriteString("# Session ended\n\n")
-	b.WriteString(fmt.Sprintf("- Session: %s\n", sessionID[:8]))
-	b.WriteString(fmt.Sprintf("- Summary saved: %s\n", truncate(summary, 80)))
-	b.WriteString(fmt.Sprintf("- Progress note created: %s\n", note.ID[:8]))
-	b.WriteString(fmt.Sprintf("- Links created: %d\n", linksCreated))
-	b.WriteString("\nThe next session will see this summary in its context.")
+	b.WriteString(fmt.Sprintf("Session ended %s\n", sessionID[:8]))
+	b.WriteString(fmt.Sprintf("Summary saved: %s\n", truncate(summary, 80)))
+	b.WriteString(fmt.Sprintf("Progress note created: %s, links: %d\n", note.ID[:8], linksCreated))
+	b.WriteString("next session will see this summary in context\n")
 
 	return mcplib.NewToolResultText(b.String()), nil
 }
@@ -714,22 +697,19 @@ func (s *DevMemServer) handleExport(ctx context.Context, req mcplib.CallToolRequ
 func (s *DevMemServer) exportMarkdown(feature *memory.Feature, ctx *memory.Context) (*mcplib.CallToolResult, error) {
 	var b strings.Builder
 
-	b.WriteString(fmt.Sprintf("# Feature: %s\n\n", feature.Name))
-	b.WriteString(fmt.Sprintf("**Status:** %s\n", feature.Status))
+	b.WriteString(fmt.Sprintf("# Feature: %s\n", feature.Name))
+	b.WriteString(fmt.Sprintf("**Status:** %s", feature.Status))
 	if feature.Branch != "" {
-		b.WriteString(fmt.Sprintf("**Branch:** %s\n", feature.Branch))
+		b.WriteString(fmt.Sprintf(" branch:%s", feature.Branch))
 	}
+	b.WriteString("\n")
 	if feature.Description != "" {
-		b.WriteString(fmt.Sprintf("**Description:** %s\n", feature.Description))
+		b.WriteString(fmt.Sprintf("desc: %s\n", feature.Description))
 	}
-	b.WriteString(fmt.Sprintf("**Created:** %s\n", feature.CreatedAt))
-	b.WriteString(fmt.Sprintf("**Last Active:** %s\n\n", feature.LastActive))
 
 	// Plan
 	if ctx.Plan != nil {
-		b.WriteString(fmt.Sprintf("## Plan: %s\n\n", ctx.Plan.Title))
-		b.WriteString(fmt.Sprintf("Progress: %d/%d steps\n\n", ctx.Plan.CompletedStep, ctx.Plan.TotalSteps))
-		// Get plan steps via the active plan for this feature
+		b.WriteString(fmt.Sprintf("plan: %s %d/%d steps\n", ctx.Plan.Title, ctx.Plan.CompletedStep, ctx.Plan.TotalSteps))
 		activePlan, err := s.planManager.GetActivePlan(feature.ID)
 		if err == nil {
 			planSteps, _ := s.planManager.GetPlanSteps(activePlan.ID)
@@ -743,58 +723,53 @@ func (s *DevMemServer) exportMarkdown(feature *memory.Feature, ctx *memory.Conte
 				b.WriteString(fmt.Sprintf("- %s %s\n", check, st.Title))
 			}
 		}
-		b.WriteString("\n")
 	}
 
 	// Note sections (decisions, progress, blockers)
-	for _, sec := range []struct{ noteType, title, emptyMsg string }{
-		{"decision", "Decisions", "_No decisions recorded._"},
-		{"progress", "Progress Notes", "_No progress notes._"},
-		{"blocker", "Blockers", ""},
+	for _, sec := range []struct{ noteType, title string }{
+		{"decision", "Decisions"},
+		{"progress", "Progress"},
+		{"blocker", "Blockers"},
 	} {
 		notes, _ := s.store.ListNotes(feature.ID, sec.noteType, 50)
-		if len(notes) == 0 && sec.emptyMsg == "" {
-			continue // skip section entirely (e.g. blockers)
+		if len(notes) == 0 {
+			continue
 		}
-		writeNoteSection(&b, sec.title, sec.emptyMsg, notes)
+		writeNoteSection(&b, sec.title, notes)
 	}
 
 	// Facts
-	b.WriteString("## Facts (Current)\n\n")
-	if len(ctx.ActiveFacts) == 0 {
-		b.WriteString("_No facts recorded._\n\n")
+	if len(ctx.ActiveFacts) > 0 {
+		b.WriteString("facts:\n")
+		for _, f := range ctx.ActiveFacts {
+			b.WriteString(fmt.Sprintf("- %s %s %s\n", f.Subject, f.Predicate, f.Object))
+		}
 	}
-	for _, f := range ctx.ActiveFacts {
-		b.WriteString(fmt.Sprintf("- %s **%s** %s\n", f.Subject, f.Predicate, f.Object))
-	}
-	b.WriteString("\n")
 
 	// Commits
-	b.WriteString("## Commits\n\n")
-	if len(ctx.RecentCommits) == 0 {
-		b.WriteString("_No commits synced._\n\n")
+	if len(ctx.RecentCommits) > 0 {
+		b.WriteString("commits:\n")
+		for _, c := range ctx.RecentCommits {
+			b.WriteString(fmt.Sprintf("- %s %s (%s)\n", c.Hash[:min(7, len(c.Hash))], c.Message, c.CommittedAt))
+		}
 	}
-	for _, c := range ctx.RecentCommits {
-		b.WriteString(fmt.Sprintf("- `%s` %s (%s)\n", c.Hash[:min(7, len(c.Hash))], c.Message, c.CommittedAt))
-	}
-	b.WriteString("\n")
 
 	// Sessions
-	b.WriteString("## Session History\n\n")
-	for _, sess := range ctx.SessionHistory {
-		ended := "active"
-		if sess.EndedAt != "" {
-			ended = sess.EndedAt
+	if len(ctx.SessionHistory) > 0 {
+		b.WriteString("Session History:\n")
+		for _, sess := range ctx.SessionHistory {
+			ended := "active"
+			if sess.EndedAt != "" {
+				ended = sess.EndedAt
+			}
+			b.WriteString(fmt.Sprintf("- %s -> %s (%s)\n", sess.StartedAt, ended, sess.Tool))
 		}
-		b.WriteString(fmt.Sprintf("- %s → %s (%s)\n", sess.StartedAt, ended, sess.Tool))
 	}
 
 	return mcplib.NewToolResultText(b.String()), nil
 }
 
 func (s *DevMemServer) exportJSON(feature *memory.Feature, ctx *memory.Context) (*mcplib.CallToolResult, error) {
-	// For JSON, just use the detailed context as formatted text
-	// A full JSON serialization can be added later
 	var b strings.Builder
 	b.WriteString("{\n")
 	b.WriteString(fmt.Sprintf("  \"feature\": \"%s\",\n", feature.Name))
@@ -809,60 +784,56 @@ func (s *DevMemServer) exportJSON(feature *memory.Feature, ctx *memory.Context) 
 	return mcplib.NewToolResultText(b.String()), nil
 }
 
-// writeNoteSection writes a markdown section header and note list to b.
-func writeNoteSection(b *strings.Builder, title, emptyMsg string, notes []memory.Note) {
-	b.WriteString(fmt.Sprintf("## %s\n\n", title))
-	if len(notes) == 0 {
-		b.WriteString(emptyMsg + "\n\n")
-	}
+// writeNoteSection writes a compact note list to b.
+func writeNoteSection(b *strings.Builder, title string, notes []memory.Note) {
+	b.WriteString(fmt.Sprintf("%s:\n", title))
 	for _, n := range notes {
-		b.WriteString(fmt.Sprintf("- **[%s]** %s\n", n.CreatedAt, n.Content))
+		b.WriteString(fmt.Sprintf("- [%s] %s\n", n.CreatedAt, n.Content))
 	}
-	b.WriteString("\n")
 }
 
-// writeContextSection writes a "### title" section with formatted items, skipped if empty.
+// writeContextSection writes a section with formatted items, skipped if empty.
 func writeContextSection[T any](b *strings.Builder, title string, items []T, format func(T) string) {
 	if len(items) == 0 {
 		return
 	}
-	b.WriteString(fmt.Sprintf("\n### %s\n", title))
+	b.WriteString(fmt.Sprintf("%s:\n", title))
 	for _, item := range items {
 		b.WriteString(format(item) + "\n")
 	}
 }
 
-// formatContext formats a Context struct into readable markdown.
+// formatContext formats a Context struct into compact text.
 func formatContext(ctx *memory.Context) string {
 	var b strings.Builder
 
 	if ctx.Feature != nil {
-		b.WriteString(fmt.Sprintf("## Context: %s [%s]\n\n", ctx.Feature.Name, ctx.Feature.Status))
+		b.WriteString(fmt.Sprintf("Context: %s [%s]", ctx.Feature.Name, ctx.Feature.Status))
 		if ctx.Feature.Branch != "" {
-			b.WriteString(fmt.Sprintf("Branch: %s\n", ctx.Feature.Branch))
+			b.WriteString(fmt.Sprintf(" branch:%s", ctx.Feature.Branch))
 		}
+		b.WriteString("\n")
 	}
 
 	if ctx.LastSessionSummary != "" {
-		b.WriteString(fmt.Sprintf("\n### Last Session\n%s\n", ctx.LastSessionSummary))
+		b.WriteString(fmt.Sprintf("Last Session: %s\n", ctx.LastSessionSummary))
 	}
 
 	if ctx.Summary != "" {
-		b.WriteString(fmt.Sprintf("\n### Summary\n%s\n", ctx.Summary))
+		b.WriteString(fmt.Sprintf("summary: %s\n", ctx.Summary))
 	}
 
 	if ctx.Plan != nil {
-		b.WriteString(fmt.Sprintf("\n### Plan: %s\n", ctx.Plan.Title))
-		b.WriteString(fmt.Sprintf("Progress: %d/%d steps completed\n", ctx.Plan.CompletedStep, ctx.Plan.TotalSteps))
+		b.WriteString(fmt.Sprintf("plan: %s %d/%d steps\n", ctx.Plan.Title, ctx.Plan.CompletedStep, ctx.Plan.TotalSteps))
 	}
 
-	writeContextSection(&b, "Recent Commits", ctx.RecentCommits, func(c memory.CommitInfo) string {
-		return fmt.Sprintf("- `%s` %s (%s)", c.Hash[:min(7, len(c.Hash))], c.Message, c.CommittedAt)
+	writeContextSection(&b, "commits", ctx.RecentCommits, func(c memory.CommitInfo) string {
+		return fmt.Sprintf("- %s %s (%s)", c.Hash[:min(7, len(c.Hash))], c.Message, c.CommittedAt)
 	})
-	writeContextSection(&b, "Recent Notes", ctx.RecentNotes, func(n memory.Note) string {
+	writeContextSection(&b, "notes", ctx.RecentNotes, func(n memory.Note) string {
 		return fmt.Sprintf("- [%s] %s (%s)", n.Type, truncate(n.Content, 100), n.CreatedAt)
 	})
-	writeContextSection(&b, "Active Facts", ctx.ActiveFacts, func(f memory.Fact) string {
+	writeContextSection(&b, "facts", ctx.ActiveFacts, func(f memory.Fact) string {
 		return fmt.Sprintf("- %s %s %s", f.Subject, f.Predicate, f.Object)
 	})
 	writeContextSection(&b, "Session History", ctx.SessionHistory, func(sess memory.Session) string {
@@ -872,11 +843,11 @@ func formatContext(ctx *memory.Context) string {
 		}
 		return fmt.Sprintf("- %s: %s -> %s (%s)", sess.ID[:8], sess.StartedAt, ended, sess.Tool)
 	})
-	writeContextSection(&b, "Memory Links", ctx.Links, func(l memory.MemoryLink) string {
+	writeContextSection(&b, "links", ctx.Links, func(l memory.MemoryLink) string {
 		return fmt.Sprintf("- %s:%s -> %s:%s [%s, %.1f]",
 			l.SourceType, l.SourceID[:8], l.TargetType, l.TargetID[:8], l.Relationship, l.Strength)
 	})
-	writeContextSection(&b, "Files Touched", ctx.FilesTouched, func(f string) string {
+	writeContextSection(&b, "files", ctx.FilesTouched, func(f string) string {
 		return fmt.Sprintf("- %s", f)
 	})
 
@@ -914,30 +885,18 @@ func (s *DevMemServer) handleFeatureAnalytics(featureName string) (*mcplib.CallT
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("# Feature Analytics: %s\n\n", a.Name))
-	b.WriteString(fmt.Sprintf("**Age:** %d days (last active %d days ago)\n", a.DaysSinceCreated, a.DaysSinceLastActive))
-	b.WriteString(fmt.Sprintf("**Avg session duration:** %s\n\n", a.AvgSessionDuration))
-
-	b.WriteString("## Activity Counts\n\n")
-	b.WriteString("| Metric | Count |\n")
-	b.WriteString("|--------|-------|\n")
-	b.WriteString(fmt.Sprintf("| Sessions | %d |\n", a.SessionCount))
-	b.WriteString(fmt.Sprintf("| Commits | %d |\n", a.CommitCount))
-	b.WriteString(fmt.Sprintf("| Notes | %d |\n", a.NoteCount))
-	b.WriteString(fmt.Sprintf("| Decisions | %d |\n", a.DecisionCount))
-	b.WriteString(fmt.Sprintf("| Blockers | %d |\n", a.BlockerCount))
-	b.WriteString(fmt.Sprintf("| Facts (active) | %d |\n", a.ActiveFactCount))
-	b.WriteString(fmt.Sprintf("| Facts (invalidated) | %d |\n", a.InvalidatedFactCount))
-
-	b.WriteString(fmt.Sprintf("\n## Plan Progress\n\n%s\n", a.PlanProgress))
+	b.WriteString(fmt.Sprintf("analytics: %s\n", a.Name))
+	b.WriteString(fmt.Sprintf("age: %dd, last active: %dd ago, avg session: %s\n", a.DaysSinceCreated, a.DaysSinceLastActive, a.AvgSessionDuration))
+	b.WriteString(fmt.Sprintf("sessions:%d commits:%d notes:%d decisions:%d blockers:%d facts:%d/%d\n",
+		a.SessionCount, a.CommitCount, a.NoteCount, a.DecisionCount, a.BlockerCount, a.ActiveFactCount, a.InvalidatedFactCount))
+	b.WriteString(fmt.Sprintf("plan: %s\n", a.PlanProgress))
 
 	if len(a.IntentBreakdown) > 0 {
-		b.WriteString("\n## Commit Intent Breakdown\n\n")
-		b.WriteString("| Intent | Count |\n")
-		b.WriteString("|--------|-------|\n")
+		parts := make([]string, 0, len(a.IntentBreakdown))
 		for intent, count := range a.IntentBreakdown {
-			b.WriteString(fmt.Sprintf("| %s | %d |\n", intent, count))
+			parts = append(parts, fmt.Sprintf("%s:%d", intent, count))
 		}
+		b.WriteString(fmt.Sprintf("intents: %s\n", strings.Join(parts, ", ")))
 	}
 
 	return mcplib.NewToolResultText(b.String()), nil
@@ -950,33 +909,20 @@ func (s *DevMemServer) handleProjectAnalytics() (*mcplib.CallToolResult, error) 
 	}
 
 	var b strings.Builder
-	b.WriteString("# Project Analytics\n\n")
-
-	b.WriteString("## Features\n\n")
-	b.WriteString("| Status | Count |\n")
-	b.WriteString("|--------|-------|\n")
-	b.WriteString(fmt.Sprintf("| Total | %d |\n", a.TotalFeatures))
-	b.WriteString(fmt.Sprintf("| Active | %d |\n", a.ActiveFeatures))
-	b.WriteString(fmt.Sprintf("| Paused | %d |\n", a.PausedFeatures))
-	b.WriteString(fmt.Sprintf("| Done | %d |\n", a.DoneFeatures))
-
-	b.WriteString("\n## Totals\n\n")
-	b.WriteString("| Metric | Count |\n")
-	b.WriteString("|--------|-------|\n")
-	b.WriteString(fmt.Sprintf("| Sessions | %d |\n", a.TotalSessions))
-	b.WriteString(fmt.Sprintf("| Commits | %d |\n", a.TotalCommits))
-	b.WriteString(fmt.Sprintf("| Notes | %d |\n", a.TotalNotes))
-	b.WriteString(fmt.Sprintf("| Facts | %d |\n", a.TotalFacts))
+	b.WriteString(fmt.Sprintf("project: %d features (%d active, %d paused, %d done)\n",
+		a.TotalFeatures, a.ActiveFeatures, a.PausedFeatures, a.DoneFeatures))
+	b.WriteString(fmt.Sprintf("totals: sessions:%d commits:%d notes:%d facts:%d\n",
+		a.TotalSessions, a.TotalCommits, a.TotalNotes, a.TotalFacts))
 
 	if a.MostActiveFeature != "" {
-		b.WriteString(fmt.Sprintf("\n**Most active feature:** %s\n", a.MostActiveFeature))
+		b.WriteString(fmt.Sprintf("most active: %s\n", a.MostActiveFeature))
 	}
 	if a.MostBlockedFeature != "" {
-		b.WriteString(fmt.Sprintf("**Most blocked feature:** %s\n", a.MostBlockedFeature))
+		b.WriteString(fmt.Sprintf("most blocked: %s\n", a.MostBlockedFeature))
 	}
 
 	if len(a.RecentActivity) > 0 {
-		b.WriteString("\n## Recent Activity\n\n")
+		b.WriteString("recent:\n")
 		for _, activity := range a.RecentActivity {
 			b.WriteString(fmt.Sprintf("- %s\n", activity))
 		}
@@ -1003,32 +949,20 @@ func (s *DevMemServer) handleHealth(ctx context.Context, req mcplib.CallToolRequ
 		return mcplib.NewToolResultError(fmt.Sprintf("Failed to get memory health: %v", err)), nil
 	}
 
-	var b strings.Builder
-	scope := "All Features"
+	scope := "all"
 	if featureName != "" {
 		scope = featureName
 	}
-	b.WriteString(fmt.Sprintf("# Memory Health: %s\n\n", scope))
-	b.WriteString(fmt.Sprintf("**Score: %.0f/100**\n\n", h.Score))
 
-	b.WriteString("## Metrics\n\n")
-	b.WriteString("| Metric | Count |\n")
-	b.WriteString("|--------|-------|\n")
-	b.WriteString(fmt.Sprintf("| Total memories | %d |\n", h.TotalMemories))
-	b.WriteString(fmt.Sprintf("| Active facts | %d |\n", h.ActiveFacts))
-	b.WriteString(fmt.Sprintf("| Stale facts | %d |\n", h.StaleFactCount))
-	b.WriteString(fmt.Sprintf("| Conflicts | %d |\n", h.ConflictCount))
-	b.WriteString(fmt.Sprintf("| Orphan notes | %d |\n", h.OrphanNoteCount))
-	b.WriteString(fmt.Sprintf("| Stale notes | %d |\n", h.StaleNoteCount))
-	b.WriteString(fmt.Sprintf("| Summaries | %d |\n", h.SummaryCount))
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("health: %s score:%.0f/100\n", scope, h.Score))
+	b.WriteString(fmt.Sprintf("memories:%d facts:%d stale_facts:%d conflicts:%d orphans:%d stale_notes:%d summaries:%d\n",
+		h.TotalMemories, h.ActiveFacts, h.StaleFactCount, h.ConflictCount, h.OrphanNoteCount, h.StaleNoteCount, h.SummaryCount))
 
 	if len(h.Suggestions) > 0 {
-		b.WriteString("\n## Suggestions\n\n")
 		for _, suggestion := range h.Suggestions {
 			b.WriteString(fmt.Sprintf("- %s\n", suggestion))
 		}
-	} else {
-		b.WriteString("\nMemory is healthy. No issues found.\n")
 	}
 
 	return mcplib.NewToolResultText(b.String()), nil
@@ -1057,21 +991,21 @@ func (s *DevMemServer) handleForget(ctx context.Context, req mcplib.CallToolRequ
 		if err != nil {
 			return mcplib.NewToolResultError(fmt.Sprintf("Failed to forget stale facts: %v", err)), nil
 		}
-		return mcplib.NewToolResultText(fmt.Sprintf("Deleted %d stale facts (invalidated 30+ days ago).", deleted)), nil
+		return mcplib.NewToolResultText(fmt.Sprintf("deleted %d stale facts", deleted)), nil
 
 	case "stale_notes":
 		deleted, err := s.store.ForgetStaleNotes(featureID)
 		if err != nil {
 			return mcplib.NewToolResultError(fmt.Sprintf("Failed to forget stale notes: %v", err)), nil
 		}
-		return mcplib.NewToolResultText(fmt.Sprintf("Deleted %d stale notes (60+ days old, no links).", deleted)), nil
+		return mcplib.NewToolResultText(fmt.Sprintf("deleted %d stale notes", deleted)), nil
 
 	case "completed_features":
 		deleted, err := s.store.ForgetCompletedFeatures()
 		if err != nil {
 			return mcplib.NewToolResultError(fmt.Sprintf("Failed to forget completed features: %v", err)), nil
 		}
-		return mcplib.NewToolResultText(fmt.Sprintf("Deleted %d completed features (done 90+ days ago).", deleted)), nil
+		return mcplib.NewToolResultText(fmt.Sprintf("deleted %d completed features", deleted)), nil
 
 	default:
 		// Treat as a specific ID
@@ -1079,7 +1013,7 @@ func (s *DevMemServer) handleForget(ctx context.Context, req mcplib.CallToolRequ
 		if err != nil {
 			return mcplib.NewToolResultError(fmt.Sprintf("Failed to forget: %v", err)), nil
 		}
-		return mcplib.NewToolResultText(fmt.Sprintf("Deleted %s with ID %s.", typ, what)), nil
+		return mcplib.NewToolResultText(fmt.Sprintf("deleted %s %s", typ, what)), nil
 	}
 }
 
@@ -1094,7 +1028,7 @@ func (s *DevMemServer) handleGenerateRules(ctx context.Context, req mcplib.CallT
 	}
 
 	if dryRun {
-		return mcplib.NewToolResultText("# Preview (dry run)\n\n" + content), nil
+		return mcplib.NewToolResultText("preview (dry run)\n\n" + content), nil
 	}
 
 	if output == "" {
@@ -1104,5 +1038,5 @@ func (s *DevMemServer) handleGenerateRules(ctx context.Context, req mcplib.CallT
 		return mcplib.NewToolResultError(fmt.Sprintf("Failed to write %s: %v", output, err)), nil
 	}
 
-	return mcplib.NewToolResultText(fmt.Sprintf("Generated %s from memory.\n\n%s", output, content)), nil
+	return mcplib.NewToolResultText(fmt.Sprintf("generated %s\n\n%s", output, content)), nil
 }

@@ -87,11 +87,8 @@ func TestHandleStatus(t *testing.T) {
 	if !strings.Contains(text, projectName) {
 		t.Errorf("status should contain project name %q, got:\n%s", projectName, text)
 	}
-	if !strings.Contains(text, "# devmem status") {
-		t.Errorf("status should contain markdown header, got:\n%s", text)
-	}
-	if !strings.Contains(text, "Active feature:") {
-		t.Errorf("status should mention active feature section, got:\n%s", text)
+	if !strings.Contains(text, "feat:") {
+		t.Errorf("status should mention feature section, got:\n%s", text)
 	}
 }
 
@@ -115,7 +112,7 @@ func TestHandleStartFeature(t *testing.T) {
 		t.Errorf("start feature result should say 'created' for new feature, got:\n%s", text)
 	}
 	if !strings.Contains(text, "Context:") {
-		t.Errorf("start feature result should contain context section, got:\n%s", text)
+		t.Errorf("start feature result should contain context, got:\n%s", text)
 	}
 }
 
@@ -290,8 +287,8 @@ func TestHandleListFeatures(t *testing.T) {
 		t.Fatalf("handleListFeatures error: %v", err)
 	}
 	text := resultText(t, res)
-	if !strings.Contains(text, "No features found") {
-		t.Errorf("should say no features when empty, got:\n%s", text)
+	if text != "" {
+		t.Errorf("should return empty when no features, got:\n%s", text)
 	}
 
 	// Create some features.
@@ -314,9 +311,6 @@ func TestHandleListFeatures(t *testing.T) {
 	}
 	if !strings.Contains(text, "feature-beta") {
 		t.Errorf("list should contain feature-beta, got:\n%s", text)
-	}
-	if !strings.Contains(text, "# Features") {
-		t.Errorf("list should have markdown header, got:\n%s", text)
 	}
 }
 
