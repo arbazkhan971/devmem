@@ -19,34 +19,25 @@ type MemoryLink struct {
 	CreatedAt    string
 }
 
+const linkInsertSQL = `INSERT OR IGNORE INTO memory_links
+	(id, source_id, source_type, target_id, target_type, relationship, strength, created_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+
 // CreateLink creates a bidirectional link between two memory items.
-// Both directions are inserted (source->target and target->source).
 func (s *Store) CreateLink(sourceID, sourceType, targetID, targetType, relationship string, strength float64) error {
 	now := time.Now().UTC().Format(time.DateTime)
 	w := s.db.Writer()
-
-	// Forward direction
-	id1 := uuid.New().String()
-	_, err := w.Exec(
-		`INSERT OR IGNORE INTO memory_links (id, source_id, source_type, target_id, target_type, relationship, strength, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		id1, sourceID, sourceType, targetID, targetType, relationship, strength, now,
-	)
-	if err != nil {
-		return fmt.Errorf("create forward link: %w", err)
+	dirs := [2][4]string{
+		{sourceID, sourceType, targetID, targetType},
+		{targetID, targetType, sourceID, sourceType},
 	}
-
-	// Reverse direction
-	id2 := uuid.New().String()
-	_, err = w.Exec(
-		`INSERT OR IGNORE INTO memory_links (id, source_id, source_type, target_id, target_type, relationship, strength, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		id2, targetID, targetType, sourceID, sourceType, relationship, strength, now,
-	)
-	if err != nil {
-		return fmt.Errorf("create reverse link: %w", err)
+	for _, d := range dirs {
+		if _, err := w.Exec(linkInsertSQL,
+			uuid.New().String(), d[0], d[1], d[2], d[3], relationship, strength, now,
+		); err != nil {
+			return fmt.Errorf("create link %s->%s: %w", d[0], d[2], err)
+		}
 	}
-
 	return nil
 }
 
@@ -75,50 +66,36 @@ func (s *Store) GetLinks(memoryID, memoryType string) ([]MemoryLink, error) {
 	return links, rows.Err()
 }
 
+// ftsTarget defines a single FTS index to search during auto-linking.
+type ftsTarget struct {
+	typeName string // singular: "note", "fact", "commit"
+	table    string // plural table name: "notes", "facts", "commits"
+}
+
+var autoLinkTargets = []ftsTarget{
+	{"note", "notes"},
+	{"fact", "facts"},
+	{"commit", "commits"},
+}
+
 // AutoLink searches FTS indexes for content and creates "related" links
 // for results above a BM25 rank threshold. Returns the count of links created.
 func (s *Store) AutoLink(sourceID, sourceType, content string) (int, error) {
 	count := 0
-
-	// Search notes_fts
-	noteLinks, err := s.searchAndLink(sourceID, sourceType, content,
-		`SELECT n.id, 'note' as type, rank
-		 FROM notes_fts fts
-		 JOIN notes n ON n.rowid = fts.rowid
-		 WHERE notes_fts MATCH ? AND rank < -0.5
-		 ORDER BY rank LIMIT 10`,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("autolink notes: %w", err)
+	for _, t := range autoLinkTargets {
+		q := fmt.Sprintf(
+			`SELECT t.id, '%s' as type, rank
+			 FROM %s_fts fts JOIN %s t ON t.rowid = fts.rowid
+			 WHERE %s_fts MATCH ? AND rank < -0.5
+			 ORDER BY rank LIMIT 10`,
+			t.typeName, t.table, t.table, t.table,
+		)
+		n, err := s.searchAndLink(sourceID, sourceType, content, q)
+		if err != nil {
+			return count, fmt.Errorf("autolink %s: %w", t.table, err)
+		}
+		count += n
 	}
-	count += noteLinks
-
-	// Search facts_fts
-	factLinks, err := s.searchAndLink(sourceID, sourceType, content,
-		`SELECT f.id, 'fact' as type, rank
-		 FROM facts_fts fts
-		 JOIN facts f ON f.rowid = fts.rowid
-		 WHERE facts_fts MATCH ? AND rank < -0.5
-		 ORDER BY rank LIMIT 10`,
-	)
-	if err != nil {
-		return count, fmt.Errorf("autolink facts: %w", err)
-	}
-	count += factLinks
-
-	// Search commits_fts
-	commitLinks, err := s.searchAndLink(sourceID, sourceType, content,
-		`SELECT c.id, 'commit' as type, rank
-		 FROM commits_fts fts
-		 JOIN commits c ON c.rowid = fts.rowid
-		 WHERE commits_fts MATCH ? AND rank < -0.5
-		 ORDER BY rank LIMIT 10`,
-	)
-	if err != nil {
-		return count, fmt.Errorf("autolink commits: %w", err)
-	}
-	count += commitLinks
-
 	return count, nil
 }
 
@@ -126,8 +103,7 @@ func (s *Store) AutoLink(sourceID, sourceType, content string) (int, error) {
 func (s *Store) searchAndLink(sourceID, sourceType, content, query string) (int, error) {
 	rows, err := s.db.Reader().Query(query, content)
 	if err != nil {
-		// FTS match errors are common with special characters; skip silently
-		return 0, nil
+		return 0, nil // FTS match errors are common with special characters
 	}
 	defer rows.Close()
 
@@ -138,22 +114,26 @@ func (s *Store) searchAndLink(sourceID, sourceType, content, query string) (int,
 		if err := rows.Scan(&targetID, &targetType, &rank); err != nil {
 			continue
 		}
-		// Don't link to self
 		if targetID == sourceID && targetType == sourceType {
 			continue
 		}
-		// Convert rank to strength (BM25 returns negative values, more negative = better match)
-		strength := 0.5
-		if rank < -2.0 {
-			strength = 0.9
-		} else if rank < -1.0 {
-			strength = 0.7
-		}
-
+		strength := rankToStrength(rank)
 		if err := s.CreateLink(sourceID, sourceType, targetID, targetType, "related", strength); err != nil {
-			continue // best-effort linking
+			continue
 		}
 		count++
 	}
 	return count, rows.Err()
+}
+
+// rankToStrength converts a BM25 rank (negative, more negative = better) to a link strength.
+func rankToStrength(rank float64) float64 {
+	switch {
+	case rank < -2.0:
+		return 0.9
+	case rank < -1.0:
+		return 0.7
+	default:
+		return 0.5
+	}
 }
