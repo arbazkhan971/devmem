@@ -57,6 +57,51 @@ func TestEndSession(t *testing.T) {
 	}
 }
 
+func TestEndSession_SetsEndedAtCorrectly(t *testing.T) {
+	store := newTestStore(t)
+
+	f, _ := store.CreateFeature("feat-end", "End session test")
+	sess, _ := store.CreateSession(f.ID, "test-tool")
+
+	// Verify EndedAt is empty before ending
+	if sess.EndedAt != "" {
+		t.Fatalf("expected empty EndedAt before ending, got %q", sess.EndedAt)
+	}
+
+	// End the session
+	if err := store.EndSession(sess.ID); err != nil {
+		t.Fatalf("EndSession: %v", err)
+	}
+
+	// List sessions and verify ended_at is set and non-empty
+	sessions, err := store.ListSessions(f.ID, 10)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(sessions))
+	}
+
+	ended := sessions[0]
+	if ended.EndedAt == "" {
+		t.Error("expected non-empty EndedAt after EndSession")
+	}
+
+	// The session should no longer appear as current
+	_, err = store.GetCurrentSession()
+	if err == nil {
+		t.Error("expected error from GetCurrentSession after ending the only session")
+	}
+
+	// Verify ended_at is a valid datetime (should be parseable)
+	if ended.EndedAt != "" {
+		// Just check it looks like a date (not empty, contains digits)
+		if len(ended.EndedAt) < 10 {
+			t.Errorf("ended_at looks invalid: %q", ended.EndedAt)
+		}
+	}
+}
+
 func TestEndSession_NotFound(t *testing.T) {
 	store := newTestStore(t)
 

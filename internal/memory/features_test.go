@@ -139,6 +139,88 @@ func TestListFeatures_ByStatus(t *testing.T) {
 	}
 }
 
+func TestListFeatures_DoneFilter(t *testing.T) {
+	store := newTestStore(t)
+
+	store.CreateFeature("feat-x", "X")
+	store.CreateFeature("feat-y", "Y")
+	store.CreateFeature("feat-z", "Z")
+
+	// Mark one as done
+	store.UpdateFeatureStatus("feat-x", "done")
+
+	done, err := store.ListFeatures("done")
+	if err != nil {
+		t.Fatalf("ListFeatures done: %v", err)
+	}
+	if len(done) != 1 {
+		t.Fatalf("expected 1 done feature, got %d", len(done))
+	}
+	if done[0].Name != "feat-x" {
+		t.Errorf("expected feat-x, got %q", done[0].Name)
+	}
+	if done[0].Status != "done" {
+		t.Errorf("expected status 'done', got %q", done[0].Status)
+	}
+}
+
+func TestListFeatures_EachStatusFilter(t *testing.T) {
+	store := newTestStore(t)
+
+	store.CreateFeature("feat-active1", "Active 1")
+	store.CreateFeature("feat-active2", "Active 2")
+	store.UpdateFeatureStatus("feat-active1", "paused")
+	store.UpdateFeatureStatus("feat-active2", "done")
+
+	// Create a third feature that will be active
+	store.CreateFeature("feat-active3", "Active 3")
+
+	// Test active filter
+	active, err := store.ListFeatures("active")
+	if err != nil {
+		t.Fatalf("ListFeatures active: %v", err)
+	}
+	if len(active) != 1 {
+		t.Fatalf("expected 1 active feature, got %d", len(active))
+	}
+	if active[0].Name != "feat-active3" {
+		t.Errorf("expected feat-active3, got %q", active[0].Name)
+	}
+
+	// Test paused filter
+	paused, err := store.ListFeatures("paused")
+	if err != nil {
+		t.Fatalf("ListFeatures paused: %v", err)
+	}
+	if len(paused) != 1 {
+		t.Fatalf("expected 1 paused feature, got %d", len(paused))
+	}
+	if paused[0].Name != "feat-active1" {
+		t.Errorf("expected feat-active1, got %q", paused[0].Name)
+	}
+
+	// Test done filter
+	done, err := store.ListFeatures("done")
+	if err != nil {
+		t.Fatalf("ListFeatures done: %v", err)
+	}
+	if len(done) != 1 {
+		t.Fatalf("expected 1 done feature, got %d", len(done))
+	}
+	if done[0].Name != "feat-active2" {
+		t.Errorf("expected feat-active2, got %q", done[0].Name)
+	}
+
+	// Test all filter
+	all, err := store.ListFeatures("all")
+	if err != nil {
+		t.Fatalf("ListFeatures all: %v", err)
+	}
+	if len(all) != 3 {
+		t.Fatalf("expected 3 total features, got %d", len(all))
+	}
+}
+
 func TestUpdateFeatureStatus(t *testing.T) {
 	store := newTestStore(t)
 

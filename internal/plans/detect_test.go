@@ -141,6 +141,38 @@ Some non-step text
 	}
 }
 
+func TestParseSteps_MarkdownDashFormat(t *testing.T) {
+	// Plain markdown dashes ("- Step one") are NOT one of the supported formats.
+	// The supported formats are: "1. Title", "1) Title", "- Step: Title"
+	// Plain "- item" should not match.
+	content := "- Step one\n- Step two\n- Step three"
+	steps := plans.ParseSteps(content)
+
+	// These are plain dash items without "Step:" prefix, so they should NOT be parsed
+	if len(steps) != 0 {
+		t.Errorf("expected 0 steps for plain dash format (not supported), got %d", len(steps))
+	}
+}
+
+func TestParseSteps_DashStepColonFormat(t *testing.T) {
+	// "- Step: Title" IS a supported format
+	content := "- Step: Design the API\n- Step: Implement handlers\n- Step: Write tests"
+	steps := plans.ParseSteps(content)
+
+	if len(steps) != 3 {
+		t.Fatalf("expected 3 steps, got %d", len(steps))
+	}
+	if steps[0].Title != "Design the API" {
+		t.Errorf("expected 'Design the API', got %q", steps[0].Title)
+	}
+	if steps[1].Title != "Implement handlers" {
+		t.Errorf("expected 'Implement handlers', got %q", steps[1].Title)
+	}
+	if steps[2].Title != "Write tests" {
+		t.Errorf("expected 'Write tests', got %q", steps[2].Title)
+	}
+}
+
 func TestParseSteps_EmptyContent(t *testing.T) {
 	steps := plans.ParseSteps("")
 	if len(steps) != 0 {

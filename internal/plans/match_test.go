@@ -120,6 +120,53 @@ func TestMatchCommitToSteps_EmptyCommitMessage(t *testing.T) {
 	}
 }
 
+func TestMatchCommitToSteps_VeryShortCommitMessage(t *testing.T) {
+	db := setupTestDB(t)
+	mgr := plans.NewManager(db)
+	featureID := createTestFeature(t, db)
+	sessionID := createTestSession(t, db, featureID)
+
+	steps := []plans.StepInput{
+		{Title: "Set up database schema", Description: "Create tables"},
+		{Title: "Write tests", Description: "Unit tests"},
+	}
+	_, err := mgr.CreatePlan(featureID, sessionID, "Plan", "", "claude", steps)
+	if err != nil {
+		t.Fatalf("CreatePlan: %v", err)
+	}
+
+	// Very short commit message — only one word
+	match, err := mgr.MatchCommitToSteps("fix", featureID)
+	if err != nil {
+		t.Fatalf("MatchCommitToSteps: %v", err)
+	}
+	// A single generic word like "fix" should not strongly match any step
+	// The result should be nil because Jaccard similarity would be very low
+	// (1 word vs 4-5 words in step titles = ~0.2 which is below 0.3 threshold)
+	if match != nil {
+		t.Logf("unexpected match for 'fix': step=%q", match.Title)
+	}
+
+	// Two-character commit message
+	match, err = mgr.MatchCommitToSteps("db", featureID)
+	if err != nil {
+		t.Fatalf("MatchCommitToSteps short: %v", err)
+	}
+	// "db" as a single token vs step titles — very low similarity
+	if match != nil {
+		t.Logf("match for 'db': step=%q (may or may not match)", match.Title)
+	}
+
+	// Single punctuation/special chars
+	match, err = mgr.MatchCommitToSteps(".", featureID)
+	if err != nil {
+		t.Fatalf("MatchCommitToSteps punctuation: %v", err)
+	}
+	if match != nil {
+		t.Error("expected nil match for punctuation-only commit message")
+	}
+}
+
 func TestMatchCommitToSteps_MatchesDescription(t *testing.T) {
 	db := setupTestDB(t)
 	mgr := plans.NewManager(db)

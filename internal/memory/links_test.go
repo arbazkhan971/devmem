@@ -86,6 +86,35 @@ func TestGetLinks_Empty(t *testing.T) {
 	}
 }
 
+func TestAutoLink_DoesNotLinkToSelf(t *testing.T) {
+	store := newTestStore(t)
+
+	f, _ := store.CreateFeature("feat-self", "Self-link test")
+
+	// Create a note with distinctive content
+	note, _ := store.CreateNote(f.ID, "", "SQLite database WAL mode performance tuning", "note")
+
+	// AutoLink the note using its own content — should not link to itself
+	count, err := store.AutoLink(note.ID, "note", "SQLite database WAL mode performance tuning")
+	if err != nil {
+		t.Fatalf("AutoLink: %v", err)
+	}
+
+	// Check that no link has the note as both source and target
+	links, err := store.GetLinks(note.ID, "note")
+	if err != nil {
+		t.Fatalf("GetLinks: %v", err)
+	}
+
+	for _, l := range links {
+		if l.TargetID == note.ID && l.TargetType == "note" {
+			t.Errorf("AutoLink created a self-link: source=%s target=%s", l.SourceID, l.TargetID)
+		}
+	}
+
+	t.Logf("AutoLink created %d links (none should be self-links)", count)
+}
+
 func TestAutoLink(t *testing.T) {
 	store := newTestStore(t)
 

@@ -109,6 +109,53 @@ func TestCreateFact_SameFactNoop(t *testing.T) {
 	}
 }
 
+func TestCreateFact_IdenticalReturnsExistingNoDuplicate(t *testing.T) {
+	store := newTestStore(t)
+
+	f, _ := store.CreateFeature("feat-dup", "Dup test")
+
+	// Create the fact
+	fact1, err := store.CreateFact(f.ID, "", "auth", "method", "JWT")
+	if err != nil {
+		t.Fatalf("CreateFact 1: %v", err)
+	}
+
+	// Create same fact (same subject+predicate+object) multiple times
+	fact2, err := store.CreateFact(f.ID, "", "auth", "method", "JWT")
+	if err != nil {
+		t.Fatalf("CreateFact 2: %v", err)
+	}
+	fact3, err := store.CreateFact(f.ID, "", "auth", "method", "JWT")
+	if err != nil {
+		t.Fatalf("CreateFact 3: %v", err)
+	}
+
+	// All should return the same ID
+	if fact2.ID != fact1.ID {
+		t.Errorf("second call: expected ID %q, got %q", fact1.ID, fact2.ID)
+	}
+	if fact3.ID != fact1.ID {
+		t.Errorf("third call: expected ID %q, got %q", fact1.ID, fact3.ID)
+	}
+
+	// Verify only 1 active fact exists for this subject+predicate
+	activeFacts, err := store.GetActiveFacts(f.ID)
+	if err != nil {
+		t.Fatalf("GetActiveFacts: %v", err)
+	}
+	if len(activeFacts) != 1 {
+		t.Errorf("expected exactly 1 active fact, got %d", len(activeFacts))
+	}
+
+	// Returned fact should have all fields intact
+	if fact2.Subject != "auth" || fact2.Predicate != "method" || fact2.Object != "JWT" {
+		t.Errorf("returned fact fields mismatch: %+v", fact2)
+	}
+	if fact2.Confidence != 1.0 {
+		t.Errorf("expected confidence 1.0, got %f", fact2.Confidence)
+	}
+}
+
 func TestGetActiveFacts(t *testing.T) {
 	store := newTestStore(t)
 

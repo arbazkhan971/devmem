@@ -74,6 +74,60 @@ func TestGetContext_StandardWithAsOf(t *testing.T) {
 	}
 }
 
+func TestGetContext_StandardAsOfHistorical(t *testing.T) {
+	store := newTestStore(t)
+
+	f, _ := store.CreateFeature("feat-temporal", "Temporal test")
+
+	// Create first fact
+	store.CreateFact(f.ID, "", "db", "uses", "PostgreSQL")
+
+	// Sleep so second fact has a different valid_at
+	time.Sleep(1100 * time.Millisecond)
+	beforeChange := time.Now()
+	time.Sleep(1100 * time.Millisecond)
+
+	// Contradict the fact
+	store.CreateFact(f.ID, "", "db", "uses", "SQLite")
+
+	// Query with as_of before the change — should see PostgreSQL
+	ctx, err := store.GetContext(f.ID, "standard", &beforeChange)
+	if err != nil {
+		t.Fatalf("GetContext with historical asOf: %v", err)
+	}
+	if len(ctx.ActiveFacts) != 1 {
+		t.Fatalf("expected 1 fact at historical time, got %d", len(ctx.ActiveFacts))
+	}
+	if ctx.ActiveFacts[0].Object != "PostgreSQL" {
+		t.Errorf("expected 'PostgreSQL' at historical time, got %q", ctx.ActiveFacts[0].Object)
+	}
+
+	// Query with as_of after the change — should see SQLite
+	afterChange := time.Now().Add(time.Second)
+	ctx, err = store.GetContext(f.ID, "standard", &afterChange)
+	if err != nil {
+		t.Fatalf("GetContext with current asOf: %v", err)
+	}
+	if len(ctx.ActiveFacts) != 1 {
+		t.Fatalf("expected 1 fact at current time, got %d", len(ctx.ActiveFacts))
+	}
+	if ctx.ActiveFacts[0].Object != "SQLite" {
+		t.Errorf("expected 'SQLite' at current time, got %q", ctx.ActiveFacts[0].Object)
+	}
+
+	// Query without as_of — should use current active facts (SQLite)
+	ctx, err = store.GetContext(f.ID, "standard", nil)
+	if err != nil {
+		t.Fatalf("GetContext without asOf: %v", err)
+	}
+	if len(ctx.ActiveFacts) != 1 {
+		t.Fatalf("expected 1 active fact, got %d", len(ctx.ActiveFacts))
+	}
+	if ctx.ActiveFacts[0].Object != "SQLite" {
+		t.Errorf("expected 'SQLite' without asOf, got %q", ctx.ActiveFacts[0].Object)
+	}
+}
+
 func TestGetContext_Detailed(t *testing.T) {
 	store := newTestStore(t)
 
