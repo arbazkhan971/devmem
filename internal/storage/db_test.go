@@ -59,3 +59,28 @@ func TestNewDB_WriterAndReader(t *testing.T) {
 		t.Fatal("path is empty")
 	}
 }
+
+func TestDB_Close_Idempotent(t *testing.T) {
+	dir := t.TempDir()
+	db, err := storage.NewDB(filepath.Join(dir, "memory.db"))
+	if err != nil {
+		t.Fatalf("NewDB failed: %v", err)
+	}
+
+	// First close should succeed
+	err = db.Close()
+	if err != nil {
+		t.Fatalf("first Close failed: %v", err)
+	}
+
+	// Second close should not panic (it may return an error for already-closed DB,
+	// but it should not panic)
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("second Close panicked: %v", r)
+			}
+		}()
+		db.Close()
+	}()
+}
