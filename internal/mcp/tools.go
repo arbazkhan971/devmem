@@ -925,3 +925,22 @@ func (s *DevMemServer) handleRecover(_ context.Context, req mcplib.CallToolReque
 	}
 	return mcplib.NewToolResultText(b.String()), nil
 }
+
+func (s *DevMemServer) handleTrackFiles(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	feature, err := s.requireActiveFeature()
+	if err != nil {
+		return respondErr("No active feature")
+	}
+	files := getStringSliceArg(req, "files")
+	if len(files) == 0 {
+		return respondErr("files array is required")
+	}
+	action := getStringArg(req, "action", "modified")
+	tracked := 0
+	for _, f := range files {
+		if err := s.store.TrackFile(feature.ID, s.currentSessionID, f, action); err == nil {
+			tracked++
+		}
+	}
+	return respond("tracked %d files (%s) in %s", tracked, action, feature.Name)
+}

@@ -28,6 +28,11 @@ func Migrate(db *DB) error {
 			return fmt.Errorf("apply v3 migration: %w", err)
 		}
 	}
+	if currentVersion < 4 {
+		if err := applyV4(w); err != nil {
+			return fmt.Errorf("apply v4 migration: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -94,6 +99,38 @@ func applyV3(w *sql.DB) error {
 		}
 	}
 	if _, err := tx.Exec("INSERT OR IGNORE INTO schema_version (version) VALUES (3)"); err != nil {
+		return fmt.Errorf("record version: %w", err)
+	}
+	return tx.Commit()
+}
+
+func applyV4(w *sql.DB) error {
+	tx, err := w.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS files_touched (id TEXT PRIMARY KEY, feature_id TEXT NOT NULL, session_id TEXT, path TEXT NOT NULL, action TEXT DEFAULT 'modified', first_seen TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(feature_id, session_id, path))`,
+		`CREATE INDEX IF NOT EXISTS idx_files_feature ON files_touched(feature_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_files_session ON files_touched(session_id)`,
+		`CREATE TABLE IF NOT EXISTS project_map (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL DEFAULT '{}', scanned_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+	}
+	for _, stmt := range stmts {
+		if _, err := tx.Exec(stmt); err != nil {
+			return fmt.Errorf("exec: %w", err)
+		}
+	}
+	// Add pinned column to notes and facts (idempotent)
+	for _, alter := range []string{
+		`ALTER TABLE notes ADD COLUMN pinned INTEGER DEFAULT 0`,
+		`ALTER TABLE facts ADD COLUMN pinned INTEGER DEFAULT 0`,
+	} {
+		if _, err := tx.Exec(alter); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+			return fmt.Errorf("alter: %w", err)
+		}
+	}
+	if _, err := tx.Exec("INSERT OR IGNORE INTO schema_version (version) VALUES (4)"); err != nil {
 		return fmt.Errorf("record version: %w", err)
 	}
 	return tx.Commit()

@@ -220,6 +220,23 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 			),
 			Handler: s.handleRecover,
 		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_manage",
+				mcplib.WithDescription("Browse, pin, unpin, or delete memories. Pinned memories always appear in context regardless of tier."),
+				mcplib.WithString("action", mcplib.Description("Action: list, pin, unpin, delete"), mcplib.Required(), mcplib.Enum("list", "pin", "unpin", "delete")),
+				mcplib.WithString("id", mcplib.Description("Memory ID for pin/unpin/delete")),
+				mcplib.WithString("filter", mcplib.Description("Filter: notes, facts, pinned, all"), mcplib.Enum("notes", "facts", "pinned", "all")),
+				mcplib.WithNumber("limit", mcplib.Description("Max results for list (default 20)")),
+			),
+			Handler: s.handleManage,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_project_map",
+				mcplib.WithDescription("Scan and cache the project structure. Shows languages, key files, directory layout. Cached between sessions."),
+				mcplib.WithBoolean("rescan", mcplib.Description("Force re-scan even if cached")),
+			),
+			Handler: s.handleProjectMap,
+		},
 	)
 }
 
