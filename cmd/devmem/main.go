@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/arbaz/devmem/internal/git"
+	devmem "github.com/arbaz/devmem/internal/mcp"
 	"github.com/arbaz/devmem/internal/storage"
 )
 
@@ -37,5 +38,9 @@ func main() {
 	}
 
 	fmt.Fprintf(os.Stderr, "devmem: initialized at %s (project: %s)\n", memDir, git.ProjectName(gitRoot))
-	// MCP server will be added in Chunk 6
+
+	srv := devmem.NewServer(db, gitRoot)
+	if err := srv.Start(); err != nil {
+		log.Fatalf("server error: %v", err)
+	}
 }
