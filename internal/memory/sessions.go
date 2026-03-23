@@ -9,12 +9,7 @@ import (
 )
 
 type Session struct {
-	ID        string
-	FeatureID string
-	Tool      string
-	StartedAt string
-	EndedAt   string
-	Summary   string
+	ID, FeatureID, Tool, StartedAt, EndedAt, Summary string
 }
 
 const sessionCols = `id, feature_id, tool, started_at, COALESCE(ended_at, ''), COALESCE(summary, '')`
@@ -26,13 +21,8 @@ func scanSession(sc interface{ Scan(...any) error }) (Session, error) {
 }
 
 func (s *Store) CreateSession(featureID, tool string) (*Session, error) {
-	id := uuid.New().String()
-	now := time.Now().UTC().Format(time.DateTime)
-	_, err := s.db.Writer().Exec(
-		`INSERT INTO sessions (id, feature_id, tool, started_at) VALUES (?, ?, ?, ?)`,
-		id, featureID, tool, now,
-	)
-	if err != nil {
+	id, now := uuid.New().String(), time.Now().UTC().Format(time.DateTime)
+	if _, err := s.db.Writer().Exec(`INSERT INTO sessions (id, feature_id, tool, started_at) VALUES (?, ?, ?, ?)`, id, featureID, tool, now); err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 	return &Session{ID: id, FeatureID: featureID, Tool: tool, StartedAt: now}, nil
@@ -40,10 +30,7 @@ func (s *Store) CreateSession(featureID, tool string) (*Session, error) {
 
 func (s *Store) EndSessionWithSummary(sessionID, summary string) error {
 	now := time.Now().UTC().Format(time.DateTime)
-	res, err := s.db.Writer().Exec(
-		`UPDATE sessions SET ended_at = ?, summary = ? WHERE id = ?`,
-		now, summary, sessionID,
-	)
+	res, err := s.db.Writer().Exec(`UPDATE sessions SET ended_at = ?, summary = ? WHERE id = ?`, now, summary, sessionID)
 	if err != nil {
 		return fmt.Errorf("end session with summary: %w", err)
 	}
@@ -66,10 +53,7 @@ func (s *Store) EndSession(sessionID string) error {
 }
 
 func (s *Store) GetCurrentSession() (*Session, error) {
-	row := s.db.Reader().QueryRow(
-		`SELECT `+sessionCols+` FROM sessions WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1`,
-	)
-	sess, err := scanSession(row)
+	sess, err := scanSession(s.db.Reader().QueryRow(`SELECT ` + sessionCols + ` FROM sessions WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1`))
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("no active session")
 	}
@@ -83,10 +67,7 @@ func (s *Store) ListSessions(featureID string, limit int) ([]Session, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := s.db.Reader().Query(
-		`SELECT `+sessionCols+` FROM sessions WHERE feature_id = ? ORDER BY started_at DESC LIMIT ?`,
-		featureID, limit,
-	)
+	rows, err := s.db.Reader().Query(`SELECT `+sessionCols+` FROM sessions WHERE feature_id = ? ORDER BY started_at DESC LIMIT ?`, featureID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
 	}

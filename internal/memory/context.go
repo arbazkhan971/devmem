@@ -27,18 +27,12 @@ type PlanInfo struct {
 }
 
 type CommitInfo struct {
-	Hash        string
-	Message     string
-	Author      string
-	CommittedAt string
+	Hash, Message, Author, CommittedAt string
 }
 
-// tierCfg drives per-tier data loading limits. Zero means skip.
 type tierCfg struct {
-	commits, notes int
-	facts          bool
-	sessions       int
-	links, files   bool
+	commits, notes, sessions int
+	facts, links, files      bool
 }
 
 var tiers = map[string]tierCfg{
@@ -47,33 +41,25 @@ var tiers = map[string]tierCfg{
 	"detailed": {commits: 100, notes: 100, facts: true, sessions: 100, links: true, files: true},
 }
 
-// GetContext assembles context for a feature at the specified tier.
 func (s *Store) GetContext(featureID, tier string, asOf *time.Time) (*Context, error) {
 	tc, ok := tiers[tier]
 	if !ok {
 		return nil, fmt.Errorf("unknown context tier: %q (valid: compact, standard, detailed)", tier)
 	}
-
 	r := s.db.Reader()
 	feature, err := scanFeature(r.QueryRow("SELECT "+featureCols+" FROM features WHERE id = ?", featureID))
 	if err != nil {
 		return nil, fmt.Errorf("get feature for context: %w", err)
 	}
-
 	ctx := &Context{Feature: feature, Plan: s.loadPlanInfo(r, featureID)}
 
 	var summary string
 	if r.QueryRow(`SELECT content FROM summaries WHERE scope = ? ORDER BY generation DESC, created_at DESC LIMIT 1`, featureID).Scan(&summary) == nil {
 		ctx.Summary = summary
 	}
-
-	// Load last ended session's summary (if any).
-	var lastSessSummary string
-	if r.QueryRow(
-		`SELECT COALESCE(summary, '') FROM sessions WHERE feature_id = ? AND ended_at IS NOT NULL AND summary != '' ORDER BY ended_at DESC LIMIT 1`,
-		featureID,
-	).Scan(&lastSessSummary) == nil && lastSessSummary != "" {
-		ctx.LastSessionSummary = lastSessSummary
+	var lastSess string
+	if r.QueryRow(`SELECT COALESCE(summary, '') FROM sessions WHERE feature_id = ? AND ended_at IS NOT NULL AND summary != '' ORDER BY ended_at DESC LIMIT 1`, featureID).Scan(&lastSess) == nil && lastSess != "" {
+		ctx.LastSessionSummary = lastSess
 	}
 
 	ctx.RecentCommits = s.loadRecentCommits(r, featureID, tc.commits)
@@ -99,7 +85,6 @@ func (s *Store) GetContext(featureID, tier string, asOf *time.Time) (*Context, e
 	return ctx, nil
 }
 
-// scanRows executes a query and scans each row with fn. Errors in individual rows are skipped.
 func scanRows[T any](r *sql.DB, query string, args []any, fn func(*sql.Rows) (T, error)) []T {
 	rows, err := r.Query(query, args...)
 	if err != nil {
@@ -108,8 +93,7 @@ func scanRows[T any](r *sql.DB, query string, args []any, fn func(*sql.Rows) (T,
 	defer rows.Close()
 	var out []T
 	for rows.Next() {
-		v, err := fn(rows)
-		if err == nil {
+		if v, err := fn(rows); err == nil {
 			out = append(out, v)
 		}
 	}
@@ -119,11 +103,7 @@ func scanRows[T any](r *sql.DB, query string, args []any, fn func(*sql.Rows) (T,
 func (s *Store) loadPlanInfo(r *sql.DB, featureID string) *PlanInfo {
 	pi := &PlanInfo{}
 	var planID string
-	err := r.QueryRow(
-		`SELECT id, title, status FROM plans WHERE feature_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
-		featureID,
-	).Scan(&planID, &pi.Title, &pi.Status)
-	if err != nil {
+	if r.QueryRow(`SELECT id, title, status FROM plans WHERE feature_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`, featureID).Scan(&planID, &pi.Title, &pi.Status) != nil {
 		return nil
 	}
 	r.QueryRow(`SELECT COUNT(*) FROM plan_steps WHERE plan_id = ?`, planID).Scan(&pi.TotalSteps)

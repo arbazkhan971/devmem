@@ -41,18 +41,9 @@ type ConsolidationSnapshot struct {
 	LastRun           string  `json:"last_run"`
 }
 
-func countRows(r *sql.DB, query string, args ...interface{}) int {
-	var c int
-	r.QueryRow(query, args...).Scan(&c)
-	return c
-}
-
 func loadPlanSnapshot(r *sql.DB, featureID string) *PlanSnapshot {
 	var planID, title string
-	if r.QueryRow(
-		`SELECT id, title FROM plans WHERE feature_id = ? AND status = 'active' AND invalid_at IS NULL ORDER BY created_at DESC LIMIT 1`,
-		featureID,
-	).Scan(&planID, &title) != nil {
+	if r.QueryRow(`SELECT id, title FROM plans WHERE feature_id = ? AND status = 'active' AND invalid_at IS NULL ORDER BY created_at DESC LIMIT 1`, featureID).Scan(&planID, &title) != nil {
 		return nil
 	}
 	total := countRows(r, `SELECT COUNT(*) FROM plan_steps WHERE plan_id = ?`, planID)
@@ -74,7 +65,6 @@ func loadConsolidationSnapshot(r *sql.DB) ConsolidationSnapshot {
 func (s *Store) WriteSnapshot(memDir, projectName, projectPath string) error {
 	r := s.db.Reader()
 	snap := Snapshot{Project: projectName, ProjectPath: projectPath}
-
 	features, err := s.ListFeatures("all")
 	if err != nil {
 		return fmt.Errorf("snapshot list features: %w", err)
@@ -91,7 +81,6 @@ func (s *Store) WriteSnapshot(memDir, projectName, projectPath string) error {
 			snap.ActiveFeature = &active
 		}
 	}
-
 	if snap.ActiveFeature != nil {
 		var fid string
 		if r.QueryRow(`SELECT id FROM features WHERE name = ?`, snap.ActiveFeature.Name).Scan(&fid) == nil {
@@ -99,13 +88,9 @@ func (s *Store) WriteSnapshot(memDir, projectName, projectPath string) error {
 		}
 	}
 	snap.Consolidation = loadConsolidationSnapshot(r)
-
 	data, err := json.MarshalIndent(snap, "", "  ")
 	if err != nil {
 		return fmt.Errorf("snapshot marshal: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(memDir, "current.json"), data, 0644); err != nil {
-		return fmt.Errorf("snapshot write: %w", err)
-	}
-	return nil
+	return os.WriteFile(filepath.Join(memDir, "current.json"), data, 0644)
 }
