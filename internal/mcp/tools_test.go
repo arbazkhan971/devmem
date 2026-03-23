@@ -93,10 +93,11 @@ func TestAllToolsExist(t *testing.T) {
 	for _, tc := range []struct{ name string }{
 		{"devmem_briefing"}, {"devmem_status"}, {"devmem_list_features"},
 		{"devmem_start_feature"}, {"devmem_switch_feature"}, {"devmem_get_context"},
-		{"devmem_sync"}, {"devmem_remember"}, {"devmem_search"},
+		{"devmem_sync"}, {"devmem_remember"}, {"devmem_search"}, {"devmem_history"},
 		{"devmem_save_plan"}, {"devmem_import_session"}, {"devmem_end_session"},
 		{"devmem_export"}, {"devmem_health"}, {"devmem_forget"},
 		{"devmem_analytics"}, {"devmem_generate_rules"},
+		{"devmem_snapshot"}, {"devmem_recover"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, ok := toolMap[tc.name]; !ok {

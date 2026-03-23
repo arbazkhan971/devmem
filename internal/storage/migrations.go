@@ -23,6 +23,11 @@ func Migrate(db *DB) error {
 			return fmt.Errorf("apply v2 migration: %w", err)
 		}
 	}
+	if currentVersion < 3 {
+		if err := applyV3(w); err != nil {
+			return fmt.Errorf("apply v3 migration: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -55,6 +60,40 @@ func applyV2(w *sql.DB) error {
 		return fmt.Errorf("add summary column: %w", err)
 	}
 	if _, err := tx.Exec("INSERT OR IGNORE INTO schema_version (version) VALUES (2)"); err != nil {
+		return fmt.Errorf("record version: %w", err)
+	}
+	return tx.Commit()
+}
+
+func applyV3(w *sql.DB) error {
+	tx, err := w.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS context_snapshots (
+			id TEXT PRIMARY KEY,
+			feature_id TEXT NOT NULL,
+			session_id TEXT,
+			content TEXT NOT NULL,
+			snapshot_type TEXT DEFAULT 'pre_compaction',
+			created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+		`CREATE INDEX IF NOT EXISTS idx_context_snapshots_feature ON context_snapshots(feature_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_context_snapshots_type ON context_snapshots(snapshot_type)`,
+	}
+	for _, stmt := range stmts {
+		if _, err := tx.Exec(stmt); err != nil {
+			return fmt.Errorf("exec: %w", err)
+		}
+	}
+	// FTS table for context_snapshots
+	if _, err := tx.Exec(`CREATE VIRTUAL TABLE IF NOT EXISTS context_snapshots_fts USING fts5(content, snapshot_type, tokenize='porter unicode61')`); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("create context_snapshots_fts: %w", err)
+		}
+	}
+	if _, err := tx.Exec("INSERT OR IGNORE INTO schema_version (version) VALUES (3)"); err != nil {
 		return fmt.Errorf("record version: %w", err)
 	}
 	return tx.Commit()

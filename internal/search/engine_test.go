@@ -988,3 +988,157 @@ func TestSearchSpecialCharactersInQuery(t *testing.T) {
 	}
 	_ = results
 }
+
+// ---------- History / SearchWithOpts tests ----------
+
+func TestHistorySearchFindsNotesFromDaysAgo(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	insertFeature(t, db, "f1", "history-feature")
+	insertNote(t, db, "n1", "f1", "Set up authentication service for user login", "progress", daysAgo(7))
+	insertNote(t, db, "n2", "f1", "Updated authentication to support OAuth", "progress", now())
+
+	engine := search.NewEngine(db)
+	since := time.Now().UTC().AddDate(0, 0, -30)
+	opts := &search.SearchOpts{Since: &since}
+	results, err := engine.SearchWithOpts("authentication", "all_features", []string{"notes"}, "", 20, opts)
+	if err != nil {
+		t.Fatalf("SearchWithOpts: %v", err)
+	}
+	if len(results) < 2 {
+		t.Fatalf("expected at least 2 results (including 7-day-old note), got %d", len(results))
+	}
+	// Both notes should be found — the one from 7 days ago and the recent one
+	ids := map[string]bool{}
+	for _, r := range results {
+		ids[r.ID] = true
+	}
+	if !ids["n1"] {
+		t.Error("expected to find note n1 from 7 days ago")
+	}
+	if !ids["n2"] {
+		t.Error("expected to find note n2 from today")
+	}
+}
+
+func TestHistorySearchRespectsDaysBackFilter(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	insertFeature(t, db, "f1", "filter-feature")
+	insertNote(t, db, "n1", "f1", "Old deployment configuration notes", "progress", daysAgo(60))
+	insertNote(t, db, "n2", "f1", "Recent deployment configuration update", "progress", daysAgo(5))
+
+	engine := search.NewEngine(db)
+
+	// Search with 10 days back — should only find the recent note
+	since10 := time.Now().UTC().AddDate(0, 0, -10)
+	opts10 := &search.SearchOpts{Since: &since10}
+	results, err := engine.SearchWithOpts("deployment", "all_features", []string{"notes"}, "", 20, opts10)
+	if err != nil {
+		t.Fatalf("SearchWithOpts (10 days): %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result within 10 days, got %d", len(results))
+	}
+	if results[0].ID != "n2" {
+		t.Errorf("expected result ID=n2, got %s", results[0].ID)
+	}
+
+	// Search with 90 days back — should find both notes
+	since90 := time.Now().UTC().AddDate(0, 0, -90)
+	opts90 := &search.SearchOpts{Since: &since90}
+	results, err = engine.SearchWithOpts("deployment", "all_features", []string{"notes"}, "", 20, opts90)
+	if err != nil {
+		t.Fatalf("SearchWithOpts (90 days): %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results within 90 days, got %d", len(results))
+	}
+}
+
+func TestHistorySearchReturnsResultsChronologically(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	insertFeature(t, db, "f1", "chrono-feature")
+	insertNote(t, db, "n1", "f1", "First migration script completed", "progress", daysAgo(20))
+	insertNote(t, db, "n2", "f1", "Second migration script added", "progress", daysAgo(10))
+	insertNote(t, db, "n3", "f1", "Third migration script deployed", "progress", daysAgo(1))
+
+	engine := search.NewEngine(db)
+	since := time.Now().UTC().AddDate(0, 0, -30)
+	opts := &search.SearchOpts{Since: &since}
+	results, err := engine.SearchWithOpts("migration", "all_features", []string{"notes"}, "", 20, opts)
+	if err != nil {
+		t.Fatalf("SearchWithOpts: %v", err)
+	}
+	if len(results) < 3 {
+		t.Fatalf("expected 3 results, got %d", len(results))
+	}
+
+	// Sort chronologically and verify order
+	search.SortByTimeAsc(results)
+	for i := 1; i < len(results); i++ {
+		if results[i].CreatedAt < results[i-1].CreatedAt {
+			t.Errorf("results not in chronological order: result[%d].CreatedAt=%s < result[%d].CreatedAt=%s",
+				i, results[i].CreatedAt, i-1, results[i-1].CreatedAt)
+		}
+	}
+	// First result should be the oldest
+	if results[0].ID != "n1" {
+		t.Errorf("expected oldest result first (n1), got %s", results[0].ID)
+	}
+	if results[len(results)-1].ID != "n3" {
+		t.Errorf("expected newest result last (n3), got %s", results[len(results)-1].ID)
+	}
+}
+
+func TestHistorySearchAcrossMultipleFeatures(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	insertFeature(t, db, "f1", "api-feature")
+	insertFeature(t, db, "f2", "frontend-feature")
+	insertNote(t, db, "n1", "f1", "Implemented API caching with Redis", "progress", daysAgo(14))
+	insertNote(t, db, "n2", "f2", "Added frontend caching for static assets", "progress", daysAgo(7))
+	insertCommit(t, db, "c1", "f1", "abc123", "Add caching layer to API endpoints", "feature", daysAgo(13))
+
+	engine := search.NewEngine(db)
+	since := time.Now().UTC().AddDate(0, 0, -30)
+	opts := &search.SearchOpts{Since: &since}
+	results, err := engine.SearchWithOpts("caching", "all_features", nil, "", 20, opts)
+	if err != nil {
+		t.Fatalf("SearchWithOpts: %v", err)
+	}
+	if len(results) < 3 {
+		t.Fatalf("expected at least 3 results across features, got %d", len(results))
+	}
+
+	// Verify results come from multiple features
+	features := map[string]bool{}
+	for _, r := range results {
+		if r.FeatureName != "" {
+			features[r.FeatureName] = true
+		}
+	}
+	if !features["api-feature"] {
+		t.Error("expected results from api-feature")
+	}
+	if !features["frontend-feature"] {
+		t.Error("expected results from frontend-feature")
+	}
+
+	// Verify results span multiple types
+	types := map[string]bool{}
+	for _, r := range results {
+		types[r.Type] = true
+	}
+	if !types["note"] {
+		t.Error("expected note type in results")
+	}
+	if !types["commit"] {
+		t.Error("expected commit type in results")
+	}
+}

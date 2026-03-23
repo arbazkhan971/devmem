@@ -10,6 +10,7 @@ import (
 	"github.com/arbaz/devmem/internal/git"
 	"github.com/arbaz/devmem/internal/memory"
 	"github.com/arbaz/devmem/internal/plans"
+	"github.com/arbaz/devmem/internal/search"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -340,6 +341,69 @@ func (s *DevMemServer) handleSearch(_ context.Context, req mcplib.CallToolReques
 			feat = " " + r.FeatureName
 		}
 		fmt.Fprintf(&b, "[%s] %q (%.2f)%s\n", r.Type, truncate(r.Content, 100), r.Relevance, feat)
+	}
+	return mcplib.NewToolResultText(b.String()), nil
+}
+
+func (s *DevMemServer) handleHistory(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	query, errRes := requireParam(req, "query")
+	if errRes != nil {
+		return errRes, nil
+	}
+
+	daysBack := 30
+	if a := req.GetArguments(); a != nil {
+		if v, ok := a["days_back"].(float64); ok && v > 0 {
+			daysBack = int(v)
+		}
+	}
+
+	types := getStringSliceArg(req, "types")
+	// Map user-friendly type names to internal table names
+	if len(types) > 0 {
+		mapped := make([]string, 0, len(types))
+		typeMap := map[string]string{
+			"decisions": "notes",
+			"progress":  "notes",
+			"blockers":  "notes",
+			"facts":     "facts",
+			"commits":   "commits",
+			"notes":     "notes",
+			"plans":     "plans",
+		}
+		seen := map[string]bool{}
+		for _, t := range types {
+			if m, ok := typeMap[t]; ok && !seen[m] {
+				mapped = append(mapped, m)
+				seen[m] = true
+			}
+		}
+		if len(mapped) > 0 {
+			types = mapped
+		}
+	}
+
+	since := time.Now().UTC().AddDate(0, 0, -daysBack)
+	opts := &search.SearchOpts{Since: &since}
+	results, err := s.searchEngine.SearchWithOpts(query, "all_features", types, "", 50, opts)
+	if err != nil {
+		return respondErr("History search failed: %v", err)
+	}
+	if len(results) == 0 {
+		return respond("No history found for %q in the last %d days.", query, daysBack)
+	}
+
+	// Sort chronologically (oldest first)
+	search.SortByTimeAsc(results)
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "# History: %q (last %d days, %d results)\n\n", query, daysBack, len(results))
+	for _, r := range results {
+		feat := ""
+		if r.FeatureName != "" {
+			feat = fmt.Sprintf(" [%s]", r.FeatureName)
+		}
+		fmt.Fprintf(&b, "- **%s** %s — %s%s\n", r.CreatedAt, r.Type, truncate(r.Content, 120), feat)
 	}
 	return mcplib.NewToolResultText(b.String()), nil
 }
@@ -690,4 +754,50 @@ func (s *DevMemServer) handleBriefing(_ context.Context, _ mcplib.CallToolReques
 	sessions, _ := s.store.ListSessions(feature.ID, 5)
 	ctxData.SessionHistory = sessions
 	return mcplib.NewToolResultText(formatBriefing(ctxData, feature)), nil
+}
+
+func (s *DevMemServer) handleSnapshot(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	content, errRes := requireParam(req, "content")
+	if errRes != nil {
+		return errRes, nil
+	}
+	feature, errRes := s.requireActiveFeature()
+	if errRes != nil {
+		return errRes, nil
+	}
+	snapshotType := getStringArg(req, "type", "pre_compaction")
+	if err := s.store.SaveSnapshot(feature.ID, s.currentSessionID, content, snapshotType); err != nil {
+		return respondErr("Failed to save snapshot: %v", err)
+	}
+	return respond("# Snapshot saved (%s)\n\nContext preserved for feature: %s\nContent length: %d chars\n\nThis context can be recovered later with devmem_recover.", snapshotType, feature.Name, len(content))
+}
+
+func (s *DevMemServer) handleRecover(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	query, errRes := requireParam(req, "query")
+	if errRes != nil {
+		return errRes, nil
+	}
+	feature, errRes := s.requireActiveFeature()
+	if errRes != nil {
+		return errRes, nil
+	}
+	limit := 3
+	if a := req.GetArguments(); a != nil {
+		if v, ok := a["limit"].(float64); ok && v > 0 {
+			limit = int(v)
+		}
+	}
+	matches, err := s.store.RecoverContext(feature.ID, query, limit)
+	if err != nil {
+		return respondErr("Failed to recover context: %v", err)
+	}
+	if len(matches) == 0 {
+		return respond("No matching snapshots found for: %s", query)
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "# Recovered context (%d matches)\n\n", len(matches))
+	for i, m := range matches {
+		fmt.Fprintf(&b, "## Match %d [%s] — %s\n\n%s\n\n", i+1, m.SnapshotType, m.CreatedAt, m.Content)
+	}
+	return mcplib.NewToolResultText(b.String()), nil
 }

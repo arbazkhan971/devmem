@@ -119,6 +119,15 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 			Handler: s.handleSearch,
 		},
 		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_history",
+				mcplib.WithDescription("Search across all sessions, notes, decisions, and facts chronologically. Find what was discussed or decided at any point in the project's history."),
+				mcplib.WithString("query", mcplib.Description("Search term"), mcplib.Required()),
+				mcplib.WithNumber("days_back", mcplib.Description("How many days to search back (default 30)")),
+				mcplib.WithArray("types", mcplib.Description("Filter by type: decisions, progress, blockers, facts"), mcplib.WithStringItems(mcplib.Enum("decisions", "progress", "blockers", "facts"))),
+			),
+			Handler: s.handleHistory,
+		},
+		server.ServerTool{
 			Tool: mcplib.NewTool("devmem_save_plan",
 				mcplib.WithDescription("Save a development plan with steps. Supersedes any existing active plan, carrying forward completed steps."),
 				mcplib.WithString("title", mcplib.Description("Title of the plan"), mcplib.Required()),
@@ -186,6 +195,22 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 				mcplib.WithBoolean("dry_run", mcplib.Description("Preview without writing file")),
 			),
 			Handler: s.handleGenerateRules,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_snapshot",
+				mcplib.WithDescription("Save current conversation context before it gets compacted. Call this before /compact or when context is getting large, to preserve details that can be recovered later."),
+				mcplib.WithString("content", mcplib.Description("Summary of current conversation state"), mcplib.Required()),
+				mcplib.WithString("type", mcplib.Description("Snapshot type: pre_compaction, checkpoint, or milestone"), mcplib.Enum("pre_compaction", "checkpoint", "milestone")),
+			),
+			Handler: s.handleSnapshot,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_recover",
+				mcplib.WithDescription("Recover specific details that may have been lost to compaction. Searches through saved snapshots for relevant context."),
+				mcplib.WithString("query", mcplib.Description("What detail to recover"), mcplib.Required()),
+				mcplib.WithNumber("limit", mcplib.Description("Max matches to return (default 3)")),
+			),
+			Handler: s.handleRecover,
 		},
 	)
 }

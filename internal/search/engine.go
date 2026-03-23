@@ -48,19 +48,29 @@ var ftsTableMap = func() map[string]*ftsTable {
 
 var typeWeights = map[string]float64{"decision": 2.0, "blocker": 1.5, "progress": 1.0, "feature": 1.2, "note": 0.5, "next_step": 1.0}
 
+// SearchOpts provides optional parameters for search queries.
+type SearchOpts struct {
+	// Since filters results to only those created after this time.
+	Since *time.Time
+}
+
 func (e *Engine) Search(query, scope string, types []string, featureID string, limit int) ([]SearchResult, error) {
+	return e.SearchWithOpts(query, scope, types, featureID, limit, nil)
+}
+
+func (e *Engine) SearchWithOpts(query, scope string, types []string, featureID string, limit int, opts *SearchOpts) ([]SearchResult, error) {
 	if limit <= 0 {
 		limit = 20
 	}
 	if len(types) == 0 {
 		types = []string{"notes", "commits", "facts", "plans"}
 	}
-	if results, err := e.searchLayer(sanitizeFTSQuery(query), scope, types, featureID, limit, false); err != nil {
+	if results, err := e.searchLayer(sanitizeFTSQuery(query), scope, types, featureID, limit, false, opts); err != nil {
 		return nil, fmt.Errorf("fts search: %w", err)
 	} else if len(results) > 0 {
 		return results, nil
 	}
-	results, err := e.searchLayer(query, scope, types, featureID, limit, true)
+	results, err := e.searchLayer(query, scope, types, featureID, limit, true, opts)
 	if err != nil {
 		return nil, fmt.Errorf("trigram search: %w", err)
 	}
@@ -77,14 +87,14 @@ func sanitizeFTSQuery(query string) string {
 	return strings.Join(tokens, " ")
 }
 
-func (e *Engine) searchLayer(matchQuery, scope string, types []string, featureID string, limit int, trigram bool) ([]SearchResult, error) {
+func (e *Engine) searchLayer(matchQuery, scope string, types []string, featureID string, limit int, trigram bool, opts *SearchOpts) ([]SearchResult, error) {
 	var allResults []SearchResult
 	for _, typ := range types {
 		tbl, ok := ftsTableMap[typ]
 		if !ok {
 			continue
 		}
-		results, err := e.searchTable(e.db.Reader(), tbl, matchQuery, scope, featureID, trigram)
+		results, err := e.searchTable(e.db.Reader(), tbl, matchQuery, scope, featureID, trigram, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +107,7 @@ func (e *Engine) searchLayer(matchQuery, scope string, types []string, featureID
 	return allResults, nil
 }
 
-func (e *Engine) searchTable(reader *sql.DB, tbl *ftsTable, matchQuery, scope, featureID string, trigram bool) ([]SearchResult, error) {
+func (e *Engine) searchTable(reader *sql.DB, tbl *ftsTable, matchQuery, scope, featureID string, trigram bool, opts *SearchOpts) ([]SearchResult, error) {
 	vtable := tbl.ftsName
 	if trigram {
 		if tbl.trigramName == "" {
@@ -123,6 +133,10 @@ WHERE %s MATCH ?`,
 	if scope == "current_feature" && featureID != "" {
 		q += fmt.Sprintf(" AND %s = ?", tbl.featureCol)
 		args = append(args, featureID)
+	}
+	if opts != nil && opts.Since != nil {
+		q += fmt.Sprintf(" AND %s >= ?", tbl.timeCol)
+		args = append(args, opts.Since.UTC().Format("2006-01-02 15:04:05"))
 	}
 	rows, err := reader.Query(q, args...)
 	if err != nil {
@@ -158,6 +172,15 @@ WHERE %s MATCH ?`,
 func sortByRelevance(results []SearchResult) {
 	for i := 1; i < len(results); i++ {
 		for j := i; j > 0 && results[j].Relevance > results[j-1].Relevance; j-- {
+			results[j], results[j-1] = results[j-1], results[j]
+		}
+	}
+}
+
+// SortByTimeAsc sorts results chronologically (oldest first).
+func SortByTimeAsc(results []SearchResult) {
+	for i := 1; i < len(results); i++ {
+		for j := i; j > 0 && results[j].CreatedAt < results[j-1].CreatedAt; j-- {
 			results[j], results[j-1] = results[j-1], results[j]
 		}
 	}
