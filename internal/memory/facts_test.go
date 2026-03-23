@@ -253,6 +253,80 @@ func TestCreateFact_VeryLongStrings(t *testing.T) {
 	}
 }
 
+func TestFactContradiction_SameSubjPredDiffObj(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("fc-1", "test")
+	store.CreateFact(f.ID, "", "db", "uses", "Postgres")
+	store.CreateFact(f.ID, "", "db", "uses", "SQLite")
+	active, _ := store.GetActiveFacts(f.ID)
+	if len(active) != 1 { t.Errorf("expected 1, got %d", len(active)) }
+	if active[0].Object != "SQLite" { t.Errorf("expected SQLite, got %q", active[0].Object) }
+}
+
+func TestFactContradiction_SameSubjPredSameObj(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("fc-2", "test")
+	f1, _ := store.CreateFact(f.ID, "", "db", "uses", "Postgres")
+	f2, _ := store.CreateFact(f.ID, "", "db", "uses", "Postgres")
+	if f1.ID != f2.ID { t.Errorf("expected same ID for identical fact") }
+	active, _ := store.GetActiveFacts(f.ID)
+	if len(active) != 1 { t.Errorf("expected 1, got %d", len(active)) }
+}
+
+func TestFactContradiction_DiffSubjSamePredObj(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("fc-3", "test")
+	store.CreateFact(f.ID, "", "db", "uses", "Postgres")
+	store.CreateFact(f.ID, "", "cache", "uses", "Postgres")
+	active, _ := store.GetActiveFacts(f.ID)
+	if len(active) != 2 { t.Errorf("expected 2, got %d", len(active)) }
+}
+
+func TestFactContradiction_SameSubjDiffPred(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("fc-4", "test")
+	store.CreateFact(f.ID, "", "db", "uses", "Postgres")
+	store.CreateFact(f.ID, "", "db", "version", "16")
+	active, _ := store.GetActiveFacts(f.ID)
+	if len(active) != 2 { t.Errorf("expected 2, got %d", len(active)) }
+}
+
+func TestFactContradiction_CompletelyDifferent(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("fc-5", "test")
+	store.CreateFact(f.ID, "", "db", "uses", "Postgres")
+	store.CreateFact(f.ID, "", "api", "framework", "Gin")
+	active, _ := store.GetActiveFacts(f.ID)
+	if len(active) != 2 { t.Errorf("expected 2, got %d", len(active)) }
+}
+
+func TestFactContradiction_Variants(t *testing.T) {
+	for _, tc := range []struct {
+		name                               string
+		subj1, pred1, obj1                 string
+		subj2, pred2, obj2                 string
+		wantActive                         int
+		wantSameID                         bool
+	}{
+		{"same_subj_pred_diff_obj", "db", "uses", "Postgres", "db", "uses", "SQLite", 1, false},
+		{"same_subj_pred_same_obj", "db", "uses", "Postgres", "db", "uses", "Postgres", 1, true},
+		{"diff_subj_same_pred_obj", "db", "uses", "Postgres", "cache", "uses", "Postgres", 2, false},
+		{"same_subj_diff_pred", "db", "uses", "Postgres", "db", "version", "16", 2, false},
+		{"completely_different", "db", "uses", "Postgres", "api", "framework", "Gin", 2, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := newTestStore(t)
+			f, _ := store.CreateFeature("feat-"+tc.name, "test")
+			f1, _ := store.CreateFact(f.ID, "", tc.subj1, tc.pred1, tc.obj1)
+			f2, _ := store.CreateFact(f.ID, "", tc.subj2, tc.pred2, tc.obj2)
+			active, _ := store.GetActiveFacts(f.ID)
+			if len(active) != tc.wantActive { t.Errorf("expected %d, got %d", tc.wantActive, len(active)) }
+			if tc.wantSameID && f1.ID != f2.ID { t.Error("expected same ID") }
+			if !tc.wantSameID && f1.ID == f2.ID { t.Error("expected different IDs") }
+		})
+	}
+}
+
 func TestQueryFactsAsOf_AfterContradiction(t *testing.T) {
 	store := newTestStore(t)
 

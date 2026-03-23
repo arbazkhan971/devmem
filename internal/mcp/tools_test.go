@@ -10,6 +10,7 @@ import (
 
 	"github.com/arbaz/devmem/internal/storage"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
 // setupTestServer creates a temp dir with a git repo, DB, and DevMemServer.
@@ -71,6 +72,38 @@ func resultText(t *testing.T, res *mcplib.CallToolResult) string {
 		t.Fatalf("first content is not TextContent, got %T", res.Content[0])
 	}
 	return tc.Text
+}
+
+func TestAllToolsExist(t *testing.T) {
+	srv := server.NewMCPServer("devmem", "1.0.0")
+	dir := t.TempDir()
+	cmd := exec.Command("git", "init")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	dbPath := filepath.Join(dir, ".memory", "memory.db")
+	db, err := storage.NewDB(dbPath)
+	if err != nil { t.Fatalf("NewDB: %v", err) }
+	t.Cleanup(func() { db.Close() })
+	if err := storage.Migrate(db); err != nil { t.Fatalf("Migrate: %v", err) }
+	devmem := NewServer(db, dir)
+	devmem.registerTools(srv)
+	toolMap := srv.ListTools()
+	for _, tc := range []struct{ name string }{
+		{"devmem_briefing"}, {"devmem_status"}, {"devmem_list_features"},
+		{"devmem_start_feature"}, {"devmem_switch_feature"}, {"devmem_get_context"},
+		{"devmem_sync"}, {"devmem_remember"}, {"devmem_search"},
+		{"devmem_save_plan"}, {"devmem_import_session"}, {"devmem_end_session"},
+		{"devmem_export"}, {"devmem_health"}, {"devmem_forget"},
+		{"devmem_analytics"}, {"devmem_generate_rules"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, ok := toolMap[tc.name]; !ok {
+				t.Errorf("tool %q not found in registered tools", tc.name)
+			}
+		})
+	}
 }
 
 func TestHandleStatus(t *testing.T) {

@@ -455,6 +455,99 @@ func TestListSessions_EmptyFeature(t *testing.T) {
 	}
 }
 
+func TestFeatureStatus_ActiveToPaused(t *testing.T) {
+	store := newTestStore(t)
+	store.CreateFeature("st-a2p", "test")
+	if err := store.UpdateFeatureStatus("st-a2p", "paused"); err != nil {
+		t.Fatalf("active->paused: %v", err)
+	}
+	f, _ := store.GetFeature("st-a2p")
+	if f.Status != "paused" { t.Errorf("got %q", f.Status) }
+}
+
+func TestFeatureStatus_PausedToActive(t *testing.T) {
+	store := newTestStore(t)
+	store.CreateFeature("st-p2a", "test")
+	store.UpdateFeatureStatus("st-p2a", "paused")
+	if err := store.UpdateFeatureStatus("st-p2a", "active"); err != nil {
+		t.Fatalf("paused->active: %v", err)
+	}
+	f, _ := store.GetFeature("st-p2a")
+	if f.Status != "active" { t.Errorf("got %q", f.Status) }
+}
+
+func TestFeatureStatus_ActiveToDone(t *testing.T) {
+	store := newTestStore(t)
+	store.CreateFeature("st-a2d", "test")
+	if err := store.UpdateFeatureStatus("st-a2d", "done"); err != nil {
+		t.Fatalf("active->done: %v", err)
+	}
+	f, _ := store.GetFeature("st-a2d")
+	if f.Status != "done" { t.Errorf("got %q", f.Status) }
+}
+
+func TestFeatureStatus_PausedToDone(t *testing.T) {
+	store := newTestStore(t)
+	store.CreateFeature("st-p2d", "test")
+	store.UpdateFeatureStatus("st-p2d", "paused")
+	if err := store.UpdateFeatureStatus("st-p2d", "done"); err != nil {
+		t.Fatalf("paused->done: %v", err)
+	}
+	f, _ := store.GetFeature("st-p2d")
+	if f.Status != "done" { t.Errorf("got %q", f.Status) }
+}
+
+func TestFeatureStatus_DoneToActive(t *testing.T) {
+	store := newTestStore(t)
+	store.CreateFeature("st-d2a", "test")
+	store.UpdateFeatureStatus("st-d2a", "done")
+	if err := store.UpdateFeatureStatus("st-d2a", "active"); err != nil {
+		t.Fatalf("done->active: %v", err)
+	}
+	f, _ := store.GetFeature("st-d2a")
+	if f.Status != "active" { t.Errorf("got %q", f.Status) }
+}
+
+func TestFeatureStatus_DoneToPaused(t *testing.T) {
+	store := newTestStore(t)
+	store.CreateFeature("st-d2p", "test")
+	store.UpdateFeatureStatus("st-d2p", "done")
+	if err := store.UpdateFeatureStatus("st-d2p", "paused"); err != nil {
+		t.Fatalf("done->paused: %v", err)
+	}
+	f, _ := store.GetFeature("st-d2p")
+	if f.Status != "paused" { t.Errorf("got %q", f.Status) }
+}
+
+func TestFeatureStatusTransitions(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		from, to string
+	}{
+		{"active_to_paused", "active", "paused"},
+		{"paused_to_active", "paused", "active"},
+		{"active_to_done", "active", "done"},
+		{"paused_to_done", "paused", "done"},
+		{"done_to_active", "done", "active"},
+		{"done_to_paused", "done", "paused"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := newTestStore(t)
+			store.CreateFeature("feat-trans", "Transition test")
+			if tc.from != "active" {
+				store.UpdateFeatureStatus("feat-trans", tc.from)
+			}
+			if err := store.UpdateFeatureStatus("feat-trans", tc.to); err != nil {
+				t.Fatalf("transition %s->%s: %v", tc.from, tc.to, err)
+			}
+			f, _ := store.GetFeature("feat-trans")
+			if f.Status != tc.to {
+				t.Errorf("expected status %q, got %q", tc.to, f.Status)
+			}
+		})
+	}
+}
+
 func TestStartFeature_Resume(t *testing.T) {
 	store := newTestStore(t)
 

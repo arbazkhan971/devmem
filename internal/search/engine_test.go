@@ -873,6 +873,87 @@ func TestSearch_QueryPatterns(t *testing.T) {
 	}
 }
 
+func TestSearchType_NotesOnly(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	insertFeature(t, db, "f1", "search-feat")
+	insertNote(t, db, "n1", "f1", "Authentication module completed", "decision", now())
+	insertCommit(t, db, "c1", "f1", "abc", "Authentication commit", "feature", now())
+	engine := search.NewEngine(db)
+	results, err := engine.Search("authentication", "all_features", []string{"notes"}, "", 10)
+	if err != nil { t.Fatalf("Search: %v", err) }
+	for _, r := range results {
+		if r.Type != "note" { t.Errorf("expected note, got %s", r.Type) }
+	}
+}
+
+func TestSearchType_CommitsOnly(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	insertFeature(t, db, "f1", "search-feat")
+	insertNote(t, db, "n1", "f1", "Authentication module completed", "decision", now())
+	insertCommit(t, db, "c1", "f1", "abc", "Authentication commit", "feature", now())
+	engine := search.NewEngine(db)
+	results, err := engine.Search("authentication", "all_features", []string{"commits"}, "", 10)
+	if err != nil { t.Fatalf("Search: %v", err) }
+	for _, r := range results {
+		if r.Type != "commit" { t.Errorf("expected commit, got %s", r.Type) }
+	}
+}
+
+func TestSearchType_FactsOnly(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	insertFeature(t, db, "f1", "search-feat")
+	insertFact(t, db, "fa1", "f1", "auth", "uses", "JWT authentication", now())
+	engine := search.NewEngine(db)
+	results, err := engine.Search("authentication", "all_features", []string{"facts"}, "", 10)
+	if err != nil { t.Fatalf("Search: %v", err) }
+	for _, r := range results {
+		if r.Type != "fact" { t.Errorf("expected fact, got %s", r.Type) }
+	}
+}
+
+func TestSearchType_PlansOnly(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	insertFeature(t, db, "f1", "search-feat")
+	insertPlan(t, db, "p1", "f1", "Authentication plan", "Plan for authentication system", now())
+	engine := search.NewEngine(db)
+	results, err := engine.Search("authentication", "all_features", []string{"plans"}, "", 10)
+	if err != nil { t.Fatalf("Search: %v", err) }
+	for _, r := range results {
+		if r.Type != "plan" { t.Errorf("expected plan, got %s", r.Type) }
+	}
+}
+
+func TestSearchTypes(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	insertFeature(t, db, "f1", "search-types-feat")
+	ts := now()
+	insertNote(t, db, "n1", "f1", "Authentication module completed", "decision", ts)
+	insertCommit(t, db, "c1", "f1", "abc123", "Authentication commit message", "feature", ts)
+	insertFact(t, db, "fa1", "f1", "auth", "uses", "JWT authentication", ts)
+	insertPlan(t, db, "p1", "f1", "Authentication plan", "Plan for authentication system", ts)
+	engine := search.NewEngine(db)
+	for _, tc := range []struct{ name string; types []string; wantType string }{
+		{"notes_only", []string{"notes"}, "note"},
+		{"commits_only", []string{"commits"}, "commit"},
+		{"facts_only", []string{"facts"}, "fact"},
+		{"plans_only", []string{"plans"}, "plan"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			results, err := engine.Search("authentication", "all_features", tc.types, "", 10)
+			if err != nil { t.Fatalf("Search(%v): %v", tc.types, err) }
+			if len(results) == 0 { t.Fatalf("expected results, got none") }
+			for _, r := range results {
+				if r.Type != tc.wantType { t.Errorf("got %s, want %s", r.Type, tc.wantType) }
+			}
+		})
+	}
+}
+
 func TestSearchSpecialCharactersInQuery(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()

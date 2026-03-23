@@ -377,6 +377,79 @@ func TestGetPlanSteps_Ordering(t *testing.T) {
 	}
 }
 
+func TestPlanStepStatus_PendingToInProgress(t *testing.T) {
+	db := setupTestDB(t)
+	mgr := plans.NewManager(db)
+	fid := createTestFeature(t, db)
+	sid := createTestSession(t, db, fid)
+	p, _ := mgr.CreatePlan(fid, sid, "Test", "", "test", []plans.StepInput{{Title: "S1"}})
+	steps, _ := mgr.GetPlanSteps(p.ID)
+	mgr.UpdateStepStatus(steps[0].ID, "in_progress")
+	updated, _ := mgr.GetPlanSteps(p.ID)
+	if updated[0].Status != "in_progress" { t.Errorf("got %q", updated[0].Status) }
+	if updated[0].CompletedAt != "" { t.Error("should have no completed_at") }
+}
+
+func TestPlanStepStatus_PendingToCompleted(t *testing.T) {
+	db := setupTestDB(t)
+	mgr := plans.NewManager(db)
+	fid := createTestFeature(t, db)
+	sid := createTestSession(t, db, fid)
+	p, _ := mgr.CreatePlan(fid, sid, "Test", "", "test", []plans.StepInput{{Title: "S1"}})
+	steps, _ := mgr.GetPlanSteps(p.ID)
+	mgr.UpdateStepStatus(steps[0].ID, "completed")
+	updated, _ := mgr.GetPlanSteps(p.ID)
+	if updated[0].Status != "completed" { t.Errorf("got %q", updated[0].Status) }
+	if updated[0].CompletedAt == "" { t.Error("should have completed_at") }
+}
+
+func TestPlanStepStatus_PendingToSkipped(t *testing.T) {
+	db := setupTestDB(t)
+	mgr := plans.NewManager(db)
+	fid := createTestFeature(t, db)
+	sid := createTestSession(t, db, fid)
+	p, _ := mgr.CreatePlan(fid, sid, "Test", "", "test", []plans.StepInput{{Title: "S1"}})
+	steps, _ := mgr.GetPlanSteps(p.ID)
+	mgr.UpdateStepStatus(steps[0].ID, "skipped")
+	updated, _ := mgr.GetPlanSteps(p.ID)
+	if updated[0].Status != "skipped" { t.Errorf("got %q", updated[0].Status) }
+}
+
+func TestPlanStepStatus_PendingToPending(t *testing.T) {
+	db := setupTestDB(t)
+	mgr := plans.NewManager(db)
+	fid := createTestFeature(t, db)
+	sid := createTestSession(t, db, fid)
+	p, _ := mgr.CreatePlan(fid, sid, "Test", "", "test", []plans.StepInput{{Title: "S1"}})
+	steps, _ := mgr.GetPlanSteps(p.ID)
+	mgr.UpdateStepStatus(steps[0].ID, "pending")
+	updated, _ := mgr.GetPlanSteps(p.ID)
+	if updated[0].Status != "pending" { t.Errorf("got %q", updated[0].Status) }
+}
+
+func TestPlanStepStatuses(t *testing.T) {
+	db := setupTestDB(t)
+	mgr := plans.NewManager(db)
+	fid := createTestFeature(t, db)
+	sid := createTestSession(t, db, fid)
+	steps := []plans.StepInput{{Title: "S1"}, {Title: "S2"}, {Title: "S3"}, {Title: "S4"}}
+	plan, _ := mgr.CreatePlan(fid, sid, "Status Transitions", "", "test", steps)
+	planSteps, _ := mgr.GetPlanSteps(plan.ID)
+	for i, tc := range []struct{ name, status string; wantCompleted bool }{
+		{"pending_to_in_progress", "in_progress", false},
+		{"pending_to_completed", "completed", true},
+		{"pending_to_skipped", "skipped", false},
+		{"pending_to_pending", "pending", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mgr.UpdateStepStatus(planSteps[i].ID, tc.status)
+			updated, _ := mgr.GetPlanSteps(plan.ID)
+			if updated[i].Status != tc.status { t.Errorf("got %q, want %q", updated[i].Status, tc.status) }
+			if (updated[i].CompletedAt != "") != tc.wantCompleted { t.Errorf("completed_at mismatch") }
+		})
+	}
+}
+
 func TestLinkCommitToStep(t *testing.T) {
 	db := setupTestDB(t)
 	mgr := plans.NewManager(db)

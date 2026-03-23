@@ -370,6 +370,71 @@ func TestGetContext_NoLastSessionSummaryWhenNoPrevious(t *testing.T) {
 	}
 }
 
+func TestContextTier_CompactMinimal(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("ct-compact", "test")
+	store.CreateNote(f.ID, "", "A note", "note")
+	store.CreateFact(f.ID, "", "lang", "is", "Go")
+	store.CreateSession(f.ID, "tool")
+	ctx, err := store.GetContext(f.ID, "compact", nil)
+	if err != nil { t.Fatalf("GetContext: %v", err) }
+	if len(ctx.RecentNotes) != 0 { t.Error("compact should have 0 notes") }
+	if len(ctx.ActiveFacts) != 0 { t.Error("compact should have 0 facts") }
+	if len(ctx.SessionHistory) != 0 { t.Error("compact should have 0 sessions") }
+}
+
+func TestContextTier_StandardNotesAndFacts(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("ct-standard", "test")
+	store.CreateNote(f.ID, "", "A note", "note")
+	store.CreateFact(f.ID, "", "lang", "is", "Go")
+	store.CreateSession(f.ID, "tool")
+	ctx, err := store.GetContext(f.ID, "standard", nil)
+	if err != nil { t.Fatalf("GetContext: %v", err) }
+	if len(ctx.RecentNotes) == 0 { t.Error("standard should have notes") }
+	if len(ctx.ActiveFacts) == 0 { t.Error("standard should have facts") }
+}
+
+func TestContextTier_DetailedEverything(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("ct-detail", "test")
+	store.CreateNote(f.ID, "", "A note", "note")
+	store.CreateFact(f.ID, "", "lang", "is", "Go")
+	store.CreateSession(f.ID, "tool")
+	ctx, err := store.GetContext(f.ID, "detailed", nil)
+	if err != nil { t.Fatalf("GetContext: %v", err) }
+	if len(ctx.RecentNotes) == 0 { t.Error("detailed should have notes") }
+	if len(ctx.ActiveFacts) == 0 { t.Error("detailed should have facts") }
+	if len(ctx.SessionHistory) == 0 { t.Error("detailed should have sessions") }
+}
+
+func TestContextTiers(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("tier-test", "Tier test feature")
+	store.CreateNote(f.ID, "", "A note", "note")
+	store.CreateFact(f.ID, "", "lang", "is", "Go")
+	store.CreateSession(f.ID, "tool")
+	for _, tc := range []struct {
+		name         string
+		tier         string
+		wantNotes    bool
+		wantFacts    bool
+		wantSessions bool
+	}{
+		{"compact_minimal", "compact", false, false, false},
+		{"standard_notes_and_facts", "standard", true, true, false},
+		{"detailed_everything", "detailed", true, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, err := store.GetContext(f.ID, tc.tier, nil)
+			if err != nil { t.Fatalf("GetContext(%s): %v", tc.tier, err) }
+			if (len(ctx.RecentNotes) > 0) != tc.wantNotes { t.Errorf("notes mismatch") }
+			if (len(ctx.ActiveFacts) > 0) != tc.wantFacts { t.Errorf("facts mismatch") }
+			if (len(ctx.SessionHistory) > 0) != tc.wantSessions { t.Errorf("sessions mismatch") }
+		})
+	}
+}
+
 func TestGetContext_TiersDifferInData(t *testing.T) {
 	store := newTestStore(t)
 	f, _ := store.CreateFeature("tier-diff", "Tier comparison")

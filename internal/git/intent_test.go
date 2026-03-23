@@ -435,6 +435,145 @@ func TestClassifyIntent_AllCategories(t *testing.T) {
 	}
 }
 
+func TestIntentKeyword_Fix(t *testing.T) {
+	got, c := git.ClassifyIntent("Fix broken login", nil)
+	if got != "bugfix" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Bug(t *testing.T) {
+	got, c := git.ClassifyIntent("Bug in authentication", nil)
+	if got != "bugfix" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Patch(t *testing.T) {
+	got, c := git.ClassifyIntent("Patch memory leak", nil)
+	if got != "bugfix" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Add(t *testing.T) {
+	got, c := git.ClassifyIntent("Add export feature", nil)
+	if got != "feature" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Implement(t *testing.T) {
+	got, c := git.ClassifyIntent("Implement caching", nil)
+	if got != "feature" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_New(t *testing.T) {
+	got, c := git.ClassifyIntent("New dashboard page", nil)
+	if got != "feature" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Refactor(t *testing.T) {
+	got, c := git.ClassifyIntent("Refactor the handler", nil)
+	if got != "refactor" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Clean(t *testing.T) {
+	got, c := git.ClassifyIntent("Clean up dead code", nil)
+	if got != "refactor" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Rename(t *testing.T) {
+	got, c := git.ClassifyIntent("Rename variables", nil)
+	if got != "refactor" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Test(t *testing.T) {
+	got, c := git.ClassifyIntent("Test the parser", nil)
+	if got != "test" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Spec(t *testing.T) {
+	got, c := git.ClassifyIntent("Spec for auth module", nil)
+	if got != "test" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Doc(t *testing.T) {
+	got, c := git.ClassifyIntent("Doc for API endpoints", nil)
+	if got != "docs" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_CI(t *testing.T) {
+	got, c := git.ClassifyIntent("CI pipeline update", nil)
+	if got != "infra" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Deploy(t *testing.T) {
+	got, c := git.ClassifyIntent("Deploy new version", nil)
+	if got != "infra" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+func TestIntentKeyword_Lint(t *testing.T) {
+	got, c := git.ClassifyIntent("Lint all files", nil)
+	if got != "cleanup" || c != 0.8 { t.Errorf("got %s/%f", got, c) }
+}
+
+func TestConventionalCommit_Feat(t *testing.T) {
+	got, c := git.ClassifyIntent("feat: add auth", nil)
+	if got != "feature" || c != 0.9 { t.Errorf("got %s/%f", got, c) }
+}
+func TestConventionalCommit_Fix(t *testing.T) {
+	got, c := git.ClassifyIntent("fix: null deref", nil)
+	if got != "bugfix" || c != 0.9 { t.Errorf("got %s/%f", got, c) }
+}
+func TestConventionalCommit_Docs(t *testing.T) {
+	got, c := git.ClassifyIntent("docs: update readme", nil)
+	if got != "docs" || c != 0.9 { t.Errorf("got %s/%f", got, c) }
+}
+func TestConventionalCommit_Test(t *testing.T) {
+	got, c := git.ClassifyIntent("test: add coverage", nil)
+	if got != "test" || c != 0.9 { t.Errorf("got %s/%f", got, c) }
+}
+func TestConventionalCommit_Refactor(t *testing.T) {
+	got, c := git.ClassifyIntent("refactor: extract fn", nil)
+	if got != "refactor" || c != 0.9 { t.Errorf("got %s/%f", got, c) }
+}
+func TestConventionalCommit_Chore(t *testing.T) {
+	got, c := git.ClassifyIntent("chore: bump deps", nil)
+	if got != "cleanup" || c != 0.9 { t.Errorf("got %s/%f", got, c) }
+}
+func TestConventionalCommit_CI(t *testing.T) {
+	got, c := git.ClassifyIntent("ci: add workflow", nil)
+	if got != "infra" || c != 0.9 { t.Errorf("got %s/%f", got, c) }
+}
+func TestConventionalCommit_Unknown(t *testing.T) {
+	got, c := git.ClassifyIntent("v1.0.0 release", nil)
+	if got != "unknown" || c != 0.0 { t.Errorf("got %s/%f", got, c) }
+}
+
+func TestIntentKeywords(t *testing.T) {
+	for _, tc := range []struct{ name, message, wantType string }{
+		{"fix_keyword", "Fix the broken login", "bugfix"},
+		{"bug_keyword", "Bug in authentication", "bugfix"},
+		{"patch_keyword", "Patch memory leak", "bugfix"},
+		{"add_keyword", "Add export feature", "feature"},
+		{"implement_keyword", "Implement caching", "feature"},
+		{"new_keyword", "New dashboard page", "feature"},
+		{"refactor_keyword", "Refactor the handler", "refactor"},
+		{"clean_keyword", "Clean up dead code", "refactor"},
+		{"rename_keyword", "Rename variables", "refactor"},
+		{"test_keyword", "Test the parser", "test"},
+		{"spec_keyword", "Spec for auth module", "test"},
+		{"doc_keyword", "Doc for API endpoints", "docs"},
+		{"ci_keyword", "CI pipeline update", "infra"},
+		{"deploy_keyword", "Deploy new version", "infra"},
+		{"lint_keyword", "Lint all files", "cleanup"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, conf := git.ClassifyIntent(tc.message, nil)
+			if got != tc.wantType { t.Errorf("got %s, want %s", got, tc.wantType) }
+			if conf != 0.8 { t.Errorf("got %f, want 0.8", conf) }
+		})
+	}
+}
+
+func TestConventionalCommits(t *testing.T) {
+	for _, tc := range []struct{ name, msg, wantType string; wantConf float64 }{
+		{"feat_prefix", "feat: add auth", "feature", 0.9},
+		{"fix_prefix", "fix: null deref", "bugfix", 0.9},
+		{"docs_prefix", "docs: update readme", "docs", 0.9},
+		{"test_prefix", "test: add coverage", "test", 0.9},
+		{"refactor_prefix", "refactor: extract fn", "refactor", 0.9},
+		{"chore_prefix", "chore: bump deps", "cleanup", 0.9},
+		{"ci_prefix", "ci: add workflow", "infra", 0.9},
+		{"unknown_prefix", "v1.0.0 release", "unknown", 0.0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, conf := git.ClassifyIntent(tc.msg, nil)
+			if got != tc.wantType { t.Errorf("got %s, want %s", got, tc.wantType) }
+			if conf != tc.wantConf { t.Errorf("got %f, want %f", conf, tc.wantConf) }
+		})
+	}
+}
+
 func TestClassifyIntent_MultipleKeywords_FirstMatchWins(t *testing.T) {
 	// The tokenizer splits the message into words and iterates over them in order.
 	// The first matching keyword determines the intent type.

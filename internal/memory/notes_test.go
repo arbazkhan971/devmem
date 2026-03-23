@@ -298,6 +298,68 @@ func TestCreateNote_AllTypes(t *testing.T) {
 	}
 }
 
+func TestNoteType_ProgressCreateRetrieve(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("nt-prog", "test")
+	n, _ := store.CreateNote(f.ID, "", "progress content", "progress")
+	got, err := store.GetNote(n.ID)
+	if err != nil { t.Fatalf("GetNote: %v", err) }
+	if got.Type != "progress" { t.Errorf("got %q", got.Type) }
+}
+
+func TestNoteType_DecisionCreateRetrieve(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("nt-dec", "test")
+	n, _ := store.CreateNote(f.ID, "", "decision content", "decision")
+	got, err := store.GetNote(n.ID)
+	if err != nil { t.Fatalf("GetNote: %v", err) }
+	if got.Type != "decision" { t.Errorf("got %q", got.Type) }
+}
+
+func TestNoteType_BlockerCreateRetrieve(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("nt-blk", "test")
+	n, _ := store.CreateNote(f.ID, "", "blocker content", "blocker")
+	got, err := store.GetNote(n.ID)
+	if err != nil { t.Fatalf("GetNote: %v", err) }
+	if got.Type != "blocker" { t.Errorf("got %q", got.Type) }
+}
+
+func TestNoteType_NextStepCreateRetrieve(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("nt-ns", "test")
+	n, _ := store.CreateNote(f.ID, "", "next_step content", "next_step")
+	got, err := store.GetNote(n.ID)
+	if err != nil { t.Fatalf("GetNote: %v", err) }
+	if got.Type != "next_step" { t.Errorf("got %q", got.Type) }
+}
+
+func TestNoteType_NoteCreateRetrieve(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("nt-note", "test")
+	n, _ := store.CreateNote(f.ID, "", "note content", "note")
+	got, err := store.GetNote(n.ID)
+	if err != nil { t.Fatalf("GetNote: %v", err) }
+	if got.Type != "note" { t.Errorf("got %q", got.Type) }
+}
+
+func TestNoteTypes_CreateAndRetrieve(t *testing.T) {
+	store := newTestStore(t)
+	f, _ := store.CreateFeature("feat-types-cr", "Note types create+retrieve")
+	for _, tc := range []struct{ name, noteType string }{
+		{"progress_type", "progress"}, {"decision_type", "decision"},
+		{"blocker_type", "blocker"}, {"next_step_type", "next_step"}, {"note_type", "note"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			created, err := store.CreateNote(f.ID, "", "Content for "+tc.noteType, tc.noteType)
+			if err != nil { t.Fatalf("CreateNote(%s): %v", tc.noteType, err) }
+			got, err := store.GetNote(created.ID)
+			if err != nil { t.Fatalf("GetNote: %v", err) }
+			if got.Type != tc.noteType { t.Errorf("got %q, want %q", got.Type, tc.noteType) }
+		})
+	}
+}
+
 func TestListNotes_OrderNewestFirst(t *testing.T) {
 	store := newTestStore(t)
 
