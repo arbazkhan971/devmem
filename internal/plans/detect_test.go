@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/plans"
+	"github.com/arbazkhan971/memorx/internal/plans"
 )
 
 func TestIsPlanLike_WithPlanContent(t *testing.T) {

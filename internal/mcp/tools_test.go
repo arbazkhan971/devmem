@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/storage"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -75,7 +75,7 @@ func resultText(t *testing.T, res *mcplib.CallToolResult) string {
 }
 
 func TestAllToolsExist(t *testing.T) {
-	srv := server.NewMCPServer("devmem", "1.0.0")
+	srv := server.NewMCPServer("memorx", "1.0.0")
 	dir := t.TempDir()
 	cmd := exec.Command("git", "init")
 	cmd.Dir = dir
@@ -87,20 +87,20 @@ func TestAllToolsExist(t *testing.T) {
 	if err != nil { t.Fatalf("NewDB: %v", err) }
 	t.Cleanup(func() { db.Close() })
 	if err := storage.Migrate(db); err != nil { t.Fatalf("Migrate: %v", err) }
-	devmem := NewServer(db, dir)
-	devmem.registerTools(srv)
+	memorx := NewServer(db, dir)
+	memorx.registerTools(srv)
 	toolMap := srv.ListTools()
 	for _, tc := range []struct{ name string }{
-		{"devmem_briefing"}, {"devmem_status"}, {"devmem_list_features"},
-		{"devmem_start_feature"}, {"devmem_switch_feature"}, {"devmem_get_context"},
-		{"devmem_sync"}, {"devmem_remember"}, {"devmem_search"}, {"devmem_history"},
-		{"devmem_save_plan"}, {"devmem_import_session"}, {"devmem_end_session"},
-		{"devmem_export"}, {"devmem_health"}, {"devmem_forget"},
-		{"devmem_analytics"}, {"devmem_generate_rules"},
-		{"devmem_snapshot"}, {"devmem_recover"},
-		{"devmem_related"}, {"devmem_dependencies"},
-		{"devmem_diff"},
-		{"devmem_onboard"}, {"devmem_changelog"}, {"devmem_share"},
+		{"memorx_briefing"}, {"memorx_status"}, {"memorx_list_features"},
+		{"memorx_start_feature"}, {"memorx_switch_feature"}, {"memorx_get_context"},
+		{"memorx_sync"}, {"memorx_remember"}, {"memorx_search"}, {"memorx_history"},
+		{"memorx_save_plan"}, {"memorx_import_session"}, {"memorx_end_session"},
+		{"memorx_export"}, {"memorx_health"}, {"memorx_forget"},
+		{"memorx_analytics"}, {"memorx_generate_rules"},
+		{"memorx_snapshot"}, {"memorx_recover"},
+		{"memorx_related"}, {"memorx_dependencies"},
+		{"memorx_diff"},
+		{"memorx_onboard"}, {"memorx_changelog"}, {"memorx_share"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, ok := toolMap[tc.name]; !ok {
@@ -114,7 +114,7 @@ func TestHandleStatus(t *testing.T) {
 	srv, dir := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleStatus(ctx, newReq("devmem_status", nil))
+	res, err := srv.handleStatus(ctx, newReq("memorx_status", nil))
 	if err != nil {
 		t.Fatalf("handleStatus error: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestHandleStatus(t *testing.T) {
 	if !strings.Contains(text, projectName) {
 		t.Errorf("status should contain project name %q, got:\n%s", projectName, text)
 	}
-	if !strings.Contains(text, "# devmem status") {
+	if !strings.Contains(text, "# memorx status") {
 		t.Errorf("status should contain markdown header, got:\n%s", text)
 	}
 	if !strings.Contains(text, "Active feature:") {
@@ -136,7 +136,7 @@ func TestHandleStartFeature(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	res, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "test-feature",
 		"description": "a test feature",
 	}))
@@ -162,14 +162,14 @@ func TestHandleRemember(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature first (required for remember).
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "remember-test",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	res, err := srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	res, err := srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "Use dependency injection for the database layer",
 		"type":    "decision",
 	}))
@@ -194,14 +194,14 @@ func TestHandleSearch_NoResults(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature so "current_feature" scope works.
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "search-test",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	res, err := srv.handleSearch(ctx, newReq("devmem_search", map[string]interface{}{
+	res, err := srv.handleSearch(ctx, newReq("memorx_search", map[string]interface{}{
 		"query": "nonexistent-xyz-foobar",
 	}))
 	if err != nil {
@@ -219,20 +219,20 @@ func TestHandleSearch_WithResults(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature and remember something.
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "search-results-test",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "The authentication system uses JWT tokens for session management",
 	}))
 	if err != nil {
 		t.Fatalf("handleRemember error: %v", err)
 	}
 
-	res, err := srv.handleSearch(ctx, newReq("devmem_search", map[string]interface{}{
+	res, err := srv.handleSearch(ctx, newReq("memorx_search", map[string]interface{}{
 		"query": "authentication JWT",
 	}))
 	if err != nil {
@@ -249,7 +249,7 @@ func TestHandleImportSession(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleImportSession(ctx, newReq("devmem_import_session", map[string]interface{}{
+	res, err := srv.handleImportSession(ctx, newReq("memorx_import_session", map[string]interface{}{
 		"feature_name": "import-test",
 		"description":  "testing import",
 		"decisions":    []interface{}{"Use Go for the backend", "Use SQLite for storage"},
@@ -286,14 +286,14 @@ func TestHandleExport(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a feature with some data.
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "export-test",
 		"description": "testing export",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "export note content",
 		"type":    "note",
 	}))
@@ -301,7 +301,7 @@ func TestHandleExport(t *testing.T) {
 		t.Fatalf("handleRemember error: %v", err)
 	}
 
-	res, err := srv.handleExport(ctx, newReq("devmem_export", map[string]interface{}{
+	res, err := srv.handleExport(ctx, newReq("memorx_export", map[string]interface{}{
 		"feature_name": "export-test",
 		"format":       "markdown",
 	}))
@@ -323,7 +323,7 @@ func TestHandleListFeatures(t *testing.T) {
 	ctx := context.Background()
 
 	// No features yet.
-	res, err := srv.handleListFeatures(ctx, newReq("devmem_list_features", nil))
+	res, err := srv.handleListFeatures(ctx, newReq("memorx_list_features", nil))
 	if err != nil {
 		t.Fatalf("handleListFeatures error: %v", err)
 	}
@@ -333,14 +333,14 @@ func TestHandleListFeatures(t *testing.T) {
 	}
 
 	// Create some features.
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "feature-alpha",
 	}))
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "feature-beta",
 	}))
 
-	res, err = srv.handleListFeatures(ctx, newReq("devmem_list_features", map[string]interface{}{
+	res, err = srv.handleListFeatures(ctx, newReq("memorx_list_features", map[string]interface{}{
 		"status_filter": "all",
 	}))
 	if err != nil {
@@ -363,14 +363,14 @@ func TestHandleSavePlan(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature first.
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "plan-test",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	res, err := srv.handleSavePlan(ctx, newReq("devmem_save_plan", map[string]interface{}{
+	res, err := srv.handleSavePlan(ctx, newReq("memorx_save_plan", map[string]interface{}{
 		"title":   "Implementation Plan",
 		"content": "Steps to build the feature",
 		"steps": []interface{}{
@@ -402,7 +402,7 @@ func TestHandleStartFeature_MissingName(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", nil))
+	res, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", nil))
 	if err != nil {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
@@ -418,7 +418,7 @@ func TestHandleRemember_NoActiveFeature(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	res, err := srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "some note",
 	}))
 	if err != nil {
@@ -436,7 +436,7 @@ func TestHandleSync_NoActiveFeature(t *testing.T) {
 	ctx := context.Background()
 
 	// Call sync without starting a feature
-	res, err := srv.handleSync(ctx, newReq("devmem_sync", nil))
+	res, err := srv.handleSync(ctx, newReq("memorx_sync", nil))
 	if err != nil {
 		t.Fatalf("handleSync error: %v", err)
 	}
@@ -452,7 +452,7 @@ func TestHandleGetContext_CompactTier(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "context-compact-test",
 		"description": "Testing compact tier",
 	}))
@@ -461,7 +461,7 @@ func TestHandleGetContext_CompactTier(t *testing.T) {
 	}
 
 	// Add some data
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "The API uses REST with JSON payloads",
 		"type":    "decision",
 	}))
@@ -470,7 +470,7 @@ func TestHandleGetContext_CompactTier(t *testing.T) {
 	}
 
 	// Get compact context
-	res, err := srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{
+	res, err := srv.handleGetContext(ctx, newReq("memorx_get_context", map[string]interface{}{
 		"tier": "compact",
 	}))
 	if err != nil {
@@ -488,7 +488,7 @@ func TestHandleGetContext_StandardTier(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "context-standard-test",
 		"description": "Testing standard tier",
 	}))
@@ -497,7 +497,7 @@ func TestHandleGetContext_StandardTier(t *testing.T) {
 	}
 
 	// Add a decision note
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "Using PostgreSQL for the database",
 		"type":    "decision",
 	}))
@@ -506,7 +506,7 @@ func TestHandleGetContext_StandardTier(t *testing.T) {
 	}
 
 	// Get standard context
-	res, err := srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{
+	res, err := srv.handleGetContext(ctx, newReq("memorx_get_context", map[string]interface{}{
 		"tier": "standard",
 	}))
 	if err != nil {
@@ -524,7 +524,7 @@ func TestHandleGetContext_DetailedTier(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "context-detailed-test",
 		"description": "Testing detailed tier",
 	}))
@@ -533,7 +533,7 @@ func TestHandleGetContext_DetailedTier(t *testing.T) {
 	}
 
 	// Get detailed context
-	res, err := srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{
+	res, err := srv.handleGetContext(ctx, newReq("memorx_get_context", map[string]interface{}{
 		"tier": "detailed",
 	}))
 	if err != nil {
@@ -555,7 +555,7 @@ func TestHandleGetContext_NoActiveFeature(t *testing.T) {
 	ctx := context.Background()
 
 	// Get context without an active feature
-	res, err := srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{
+	res, err := srv.handleGetContext(ctx, newReq("memorx_get_context", map[string]interface{}{
 		"tier": "standard",
 	}))
 	if err != nil {
@@ -573,14 +573,14 @@ func TestHandleExport_JSONFormat(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a feature with some data.
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "export-json-test",
 		"description": "testing JSON export",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "json export note content",
 		"type":    "decision",
 	}))
@@ -588,7 +588,7 @@ func TestHandleExport_JSONFormat(t *testing.T) {
 		t.Fatalf("handleRemember error: %v", err)
 	}
 
-	res, err := srv.handleExport(ctx, newReq("devmem_export", map[string]interface{}{
+	res, err := srv.handleExport(ctx, newReq("memorx_export", map[string]interface{}{
 		"feature_name": "export-json-test",
 		"format":       "json",
 	}))
@@ -617,7 +617,7 @@ func TestHandleRemember_PlanAutoPromotion(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature first.
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "plan-auto-promote-test",
 	}))
 	if err != nil {
@@ -631,7 +631,7 @@ func TestHandleRemember_PlanAutoPromotion(t *testing.T) {
 3. Write integration tests
 4. Deploy to staging`
 
-	res, err := srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	res, err := srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": planContent,
 		"type":    "note",
 	}))
@@ -656,7 +656,7 @@ func TestHandleStartFeature_ResumeExisting(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a feature.
-	res1, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	res1, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "resume-test",
 		"description": "first feature",
 	}))
@@ -669,7 +669,7 @@ func TestHandleStartFeature_ResumeExisting(t *testing.T) {
 	}
 
 	// Start a second feature (pausing the first).
-	_, err = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "other-feature",
 	}))
 	if err != nil {
@@ -677,7 +677,7 @@ func TestHandleStartFeature_ResumeExisting(t *testing.T) {
 	}
 
 	// Resume the first feature — should say "resumed", not "created".
-	res2, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	res2, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "resume-test",
 	}))
 	if err != nil {
@@ -697,13 +697,13 @@ func TestHandleSearch_AllFeaturesScope(t *testing.T) {
 	ctx := context.Background()
 
 	// Create feature A and remember something.
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "search-all-feat-a",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature A error: %v", err)
 	}
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "The payment gateway uses Stripe for all transactions",
 	}))
 	if err != nil {
@@ -711,7 +711,7 @@ func TestHandleSearch_AllFeaturesScope(t *testing.T) {
 	}
 
 	// Create feature B (which pauses A).
-	_, err = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "search-all-feat-b",
 	}))
 	if err != nil {
@@ -719,7 +719,7 @@ func TestHandleSearch_AllFeaturesScope(t *testing.T) {
 	}
 
 	// Search across all features should find the note from feature A.
-	res, err := srv.handleSearch(ctx, newReq("devmem_search", map[string]interface{}{
+	res, err := srv.handleSearch(ctx, newReq("memorx_search", map[string]interface{}{
 		"query": "payment Stripe",
 		"scope": "all_features",
 	}))
@@ -738,20 +738,20 @@ func TestHandleStatus_WithFeaturesInAllStates(t *testing.T) {
 	ctx := context.Background()
 
 	// Create features in different states
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "feat-done",
 		"description": "will be done",
 	}))
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "feat-paused",
 		"description": "will be paused",
 	}))
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "feat-active",
 		"description": "the active one",
 	}))
 
-	res, err := srv.handleStatus(ctx, newReq("devmem_status", nil))
+	res, err := srv.handleStatus(ctx, newReq("memorx_status", nil))
 	if err != nil {
 		t.Fatalf("handleStatus error: %v", err)
 	}
@@ -765,7 +765,7 @@ func TestHandleRemember_EachNoteType(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "note-type-test",
 	}))
 	if err != nil {
@@ -775,7 +775,7 @@ func TestHandleRemember_EachNoteType(t *testing.T) {
 	noteTypes := []string{"progress", "decision", "blocker", "next_step", "note"}
 	for _, nt := range noteTypes {
 		t.Run(nt, func(t *testing.T) {
-			res, err := srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+			res, err := srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 				"content": "Test content for " + nt,
 				"type":    nt,
 			}))
@@ -794,7 +794,7 @@ func TestHandleImportSession_EmptyFeatureName(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleImportSession(ctx, newReq("devmem_import_session", map[string]interface{}{
+	res, err := srv.handleImportSession(ctx, newReq("memorx_import_session", map[string]interface{}{
 		"feature_name": "",
 		"description":  "should fail",
 	}))
@@ -818,14 +818,14 @@ func TestHandleSwitchFeature_CreatesNewSession(t *testing.T) {
 	ctx := context.Background()
 
 	// Create two features
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "switch-feat-a",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature a error: %v", err)
 	}
 
-	_, err = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "switch-feat-b",
 	}))
 	if err != nil {
@@ -833,7 +833,7 @@ func TestHandleSwitchFeature_CreatesNewSession(t *testing.T) {
 	}
 
 	// Switch back to feat-a
-	res, err := srv.handleSwitchFeature(ctx, newReq("devmem_switch_feature", map[string]interface{}{
+	res, err := srv.handleSwitchFeature(ctx, newReq("memorx_switch_feature", map[string]interface{}{
 		"name": "switch-feat-a",
 	}))
 	if err != nil {
@@ -849,7 +849,7 @@ func TestHandleSwitchFeature_CreatesNewSession(t *testing.T) {
 	}
 
 	// Verify the status shows the correct feature context
-	statusRes, err := srv.handleStatus(ctx, newReq("devmem_status", nil))
+	statusRes, err := srv.handleStatus(ctx, newReq("memorx_status", nil))
 	if err != nil {
 		t.Fatalf("handleStatus error: %v", err)
 	}
@@ -864,7 +864,7 @@ func TestHandleEndSession(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature first.
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "end-session-test",
 	}))
 	if err != nil {
@@ -872,7 +872,7 @@ func TestHandleEndSession(t *testing.T) {
 	}
 
 	// End session with a summary.
-	res, err := srv.handleEndSession(ctx, newReq("devmem_end_session", map[string]interface{}{
+	res, err := srv.handleEndSession(ctx, newReq("memorx_end_session", map[string]interface{}{
 		"summary": "Implemented user auth flow and wrote integration tests",
 	}))
 	if err != nil {
@@ -899,7 +899,7 @@ func TestHandleEndSession_NoActiveSession(t *testing.T) {
 	ctx := context.Background()
 
 	// Don't start a feature — no session exists.
-	res, err := srv.handleEndSession(ctx, newReq("devmem_end_session", map[string]interface{}{
+	res, err := srv.handleEndSession(ctx, newReq("memorx_end_session", map[string]interface{}{
 		"summary": "nothing happened",
 	}))
 	if err != nil {
@@ -916,11 +916,11 @@ func TestHandleEndSession_MissingSummary(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "end-session-missing-summary",
 	}))
 
-	res, err := srv.handleEndSession(ctx, newReq("devmem_end_session", map[string]interface{}{}))
+	res, err := srv.handleEndSession(ctx, newReq("memorx_end_session", map[string]interface{}{}))
 	if err != nil {
 		t.Fatalf("handleEndSession error: %v", err)
 	}
@@ -934,9 +934,9 @@ func TestHandleEndSession_MissingSummary(t *testing.T) {
 func TestHandleForget_StaleFacts(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{"name": "forget-stale"}))
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{"name": "forget-stale"}))
 
-	res, err := srv.handleForget(ctx, newReq("devmem_forget", map[string]interface{}{"what": "stale_facts"}))
+	res, err := srv.handleForget(ctx, newReq("memorx_forget", map[string]interface{}{"what": "stale_facts"}))
 	if err != nil {
 		t.Fatalf("handleForget: %v", err)
 	}
@@ -949,9 +949,9 @@ func TestHandleForget_StaleFacts(t *testing.T) {
 func TestHandleForget_StaleNotes(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{"name": "forget-notes"}))
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{"name": "forget-notes"}))
 
-	res, err := srv.handleForget(ctx, newReq("devmem_forget", map[string]interface{}{"what": "stale_notes"}))
+	res, err := srv.handleForget(ctx, newReq("memorx_forget", map[string]interface{}{"what": "stale_notes"}))
 	if err != nil {
 		t.Fatalf("handleForget: %v", err)
 	}
@@ -965,7 +965,7 @@ func TestHandleForget_CompletedFeatures(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleForget(ctx, newReq("devmem_forget", map[string]interface{}{"what": "completed_features"}))
+	res, err := srv.handleForget(ctx, newReq("memorx_forget", map[string]interface{}{"what": "completed_features"}))
 	if err != nil {
 		t.Fatalf("handleForget: %v", err)
 	}
@@ -979,7 +979,7 @@ func TestHandleGenerateRules_DryRun(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleGenerateRules(ctx, newReq("devmem_generate_rules", map[string]interface{}{"dry_run": true}))
+	res, err := srv.handleGenerateRules(ctx, newReq("memorx_generate_rules", map[string]interface{}{"dry_run": true}))
 	if err != nil {
 		t.Fatalf("handleGenerateRules: %v", err)
 	}
@@ -996,7 +996,7 @@ func TestHandleAnalytics_NoFeatures(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleAnalytics(ctx, newReq("devmem_analytics", map[string]interface{}{}))
+	res, err := srv.handleAnalytics(ctx, newReq("memorx_analytics", map[string]interface{}{}))
 	if err != nil {
 		t.Fatalf("handleAnalytics: %v", err)
 	}
@@ -1012,14 +1012,14 @@ func TestHandleEndSession_SummaryAppearsInContext(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature and end the session with a summary.
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "summary-in-context-test",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	_, err = srv.handleEndSession(ctx, newReq("devmem_end_session", map[string]interface{}{
+	_, err = srv.handleEndSession(ctx, newReq("memorx_end_session", map[string]interface{}{
 		"summary": "Built the database schema and migration system",
 	}))
 	if err != nil {
@@ -1027,7 +1027,7 @@ func TestHandleEndSession_SummaryAppearsInContext(t *testing.T) {
 	}
 
 	// Start a new session (re-start the same feature).
-	_, err = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "summary-in-context-test",
 	}))
 	if err != nil {
@@ -1035,7 +1035,7 @@ func TestHandleEndSession_SummaryAppearsInContext(t *testing.T) {
 	}
 
 	// Get context — should include the previous session's summary.
-	res, err := srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{
+	res, err := srv.handleGetContext(ctx, newReq("memorx_get_context", map[string]interface{}{
 		"tier": "compact",
 	}))
 	if err != nil {
@@ -1058,16 +1058,16 @@ func TestHandlerErrors_RequiresActiveFeature(t *testing.T) {
 		fn   func(*DevMemServer, context.Context, map[string]interface{}) (*mcplib.CallToolResult, error)
 	}{
 		{"sync", nil, func(s *DevMemServer, ctx context.Context, _ map[string]interface{}) (*mcplib.CallToolResult, error) {
-			return s.handleSync(ctx, newReq("devmem_sync", nil))
+			return s.handleSync(ctx, newReq("memorx_sync", nil))
 		}},
 		{"remember", map[string]interface{}{"content": "x"}, func(s *DevMemServer, ctx context.Context, args map[string]interface{}) (*mcplib.CallToolResult, error) {
-			return s.handleRemember(ctx, newReq("devmem_remember", args))
+			return s.handleRemember(ctx, newReq("memorx_remember", args))
 		}},
 		{"search", map[string]interface{}{"query": "test"}, func(s *DevMemServer, ctx context.Context, args map[string]interface{}) (*mcplib.CallToolResult, error) {
-			return s.handleSearch(ctx, newReq("devmem_search", args))
+			return s.handleSearch(ctx, newReq("memorx_search", args))
 		}},
 		{"save_plan", map[string]interface{}{"title": "t", "steps": []interface{}{map[string]interface{}{"title": "s1"}}}, func(s *DevMemServer, ctx context.Context, args map[string]interface{}) (*mcplib.CallToolResult, error) {
-			return s.handleSavePlan(ctx, newReq("devmem_save_plan", args))
+			return s.handleSavePlan(ctx, newReq("memorx_save_plan", args))
 		}},
 	}
 	for _, tc := range handlers {
@@ -1090,7 +1090,7 @@ func TestHandleDiff_WithNewData(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature.
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "diff-data-test",
 		"description": "testing diff with data",
 	}))
@@ -1099,14 +1099,14 @@ func TestHandleDiff_WithNewData(t *testing.T) {
 	}
 
 	// Add some notes and facts via remember + import_session.
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "decided to use GraphQL",
 		"type":    "decision",
 	}))
 	if err != nil {
 		t.Fatalf("handleRemember error: %v", err)
 	}
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "set up project structure",
 		"type":    "progress",
 	}))
@@ -1115,7 +1115,7 @@ func TestHandleDiff_WithNewData(t *testing.T) {
 	}
 
 	// Call diff with a past time.
-	res, err := srv.handleDiff(ctx, newReq("devmem_diff", map[string]interface{}{
+	res, err := srv.handleDiff(ctx, newReq("memorx_diff", map[string]interface{}{
 		"since": "2020-01-01",
 	}))
 	if err != nil {
@@ -1151,7 +1151,7 @@ func TestHandleDiff_NoChanges(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature.
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "diff-nochange-test",
 	}))
 	if err != nil {
@@ -1159,7 +1159,7 @@ func TestHandleDiff_NoChanges(t *testing.T) {
 	}
 
 	// Diff from the future — nothing should show.
-	res, err := srv.handleDiff(ctx, newReq("devmem_diff", map[string]interface{}{
+	res, err := srv.handleDiff(ctx, newReq("memorx_diff", map[string]interface{}{
 		"since": "2099-01-01",
 	}))
 	if err != nil {
@@ -1183,7 +1183,7 @@ func TestHandleDiff_DefaultSince(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature (this creates a session).
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "diff-default-test",
 	}))
 	if err != nil {
@@ -1191,7 +1191,7 @@ func TestHandleDiff_DefaultSince(t *testing.T) {
 	}
 
 	// Call diff with no since parameter — should default to last session or creation time.
-	res, err := srv.handleDiff(ctx, newReq("devmem_diff", nil))
+	res, err := srv.handleDiff(ctx, newReq("memorx_diff", nil))
 	if err != nil {
 		t.Fatalf("handleDiff error: %v", err)
 	}
@@ -1206,7 +1206,7 @@ func TestHandleDiff_NoActiveFeature(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleDiff(ctx, newReq("devmem_diff", nil))
+	res, err := srv.handleDiff(ctx, newReq("memorx_diff", nil))
 	if err != nil {
 		t.Fatalf("handleDiff error: %v", err)
 	}

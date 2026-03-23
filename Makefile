@@ -1,19 +1,19 @@
 .PHONY: build test run clean bench benchmark
 
 build:
-	go build -o bin/devmem ./cmd/devmem
+	go build -o bin/memorx ./cmd/devmem
 
 test:
 	go test ./... -v -count=1
 
 run: build
-	./bin/devmem
+	./bin/memorx
 
 clean:
 	rm -rf bin/
 
 bench:
-	go build -o bin/devmem-bench ./cmd/devmem-bench
+	go build -o bin/memorx-bench ./cmd/devmem-bench
 
 benchmark: bench
-	./bin/devmem-bench -v
+	./bin/memorx-bench -v

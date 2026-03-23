@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/arbaz/devmem/internal/search"
+	"github.com/arbazkhan971/memorx/internal/search"
 )
 
 // RelatedResult holds all related memories for a topic.

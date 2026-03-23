@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arbaz/devmem/internal/git"
-	"github.com/arbaz/devmem/internal/memory"
-	"github.com/arbaz/devmem/internal/plans"
-	"github.com/arbaz/devmem/internal/search"
+	"github.com/arbazkhan971/memorx/internal/git"
+	"github.com/arbazkhan971/memorx/internal/memory"
+	"github.com/arbazkhan971/memorx/internal/plans"
+	"github.com/arbazkhan971/memorx/internal/search"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -23,7 +23,7 @@ func respondErr(f string, a ...interface{}) (*mcplib.CallToolResult, error) {
 func (s *DevMemServer) requireActiveFeature() (*memory.Feature, *mcplib.CallToolResult) {
 	f, err := s.store.GetActiveFeature()
 	if err != nil {
-		return nil, mcplib.NewToolResultError("No active feature. Use devmem_start_feature first.")
+		return nil, mcplib.NewToolResultError("No active feature. Use memorx_start_feature first.")
 	}
 	return f, nil
 }
@@ -121,7 +121,7 @@ func (s *DevMemServer) resolveFeatureID(name string) (string, *mcplib.CallToolRe
 
 func (s *DevMemServer) handleStatus(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# devmem status — %s\n\n", git.ProjectName(s.gitRoot))
+	fmt.Fprintf(&b, "# memorx status — %s\n\n", git.ProjectName(s.gitRoot))
 	feature, err := s.store.GetActiveFeature()
 	if err != nil {
 		b.WriteString("**Active feature:** none\n\n")
@@ -304,7 +304,7 @@ func (s *DevMemServer) handleRemember(_ context.Context, req mcplib.CallToolRequ
 	resp := fmt.Sprintf("# Remembered (%s)\n\n- ID: %s\n- Links created: %d\n", noteType, note.ID[:8], lc)
 	if plans.IsPlanLike(content) {
 		if steps := plans.ParseSteps(content); len(steps) > 0 {
-			if plan, err := s.planManager.CreatePlan(feature.ID, s.currentSessionID, fmt.Sprintf("Plan from note %s", note.ID[:8]), content, "devmem_remember", steps); err == nil {
+			if plan, err := s.planManager.CreatePlan(feature.ID, s.currentSessionID, fmt.Sprintf("Plan from note %s", note.ID[:8]), content, "memorx_remember", steps); err == nil {
 				resp += fmt.Sprintf("\n**Auto-promoted to plan:** %s (%d steps)\n", plan.Title, len(steps))
 			}
 		}
@@ -435,7 +435,7 @@ func (s *DevMemServer) handleSavePlan(_ context.Context, req mcplib.CallToolRequ
 		os, _ := s.planManager.GetPlanSteps(old.ID)
 		superseded = fmt.Sprintf("\n**Superseded:** %s (%d/%d steps completed)\n", old.Title, countCompleted(os), len(os))
 	}
-	plan, err := s.planManager.CreatePlan(feature.ID, s.currentSessionID, title, getStringArg(req, "content", ""), "devmem_save_plan", steps)
+	plan, err := s.planManager.CreatePlan(feature.ID, s.currentSessionID, title, getStringArg(req, "content", ""), "memorx_save_plan", steps)
 	if err != nil {
 		return respondErr("Failed to create plan: %v", err)
 	}
@@ -869,7 +869,7 @@ func (s *DevMemServer) handleProjectMap(_ context.Context, req mcplib.CallToolRe
 func (s *DevMemServer) handleBriefing(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	feature, err := s.store.GetActiveFeature()
 	if err != nil {
-		return mcplib.NewToolResultText("devmem: No active feature. Use devmem_start_feature to begin."), nil
+		return mcplib.NewToolResultText("memorx: No active feature. Use memorx_start_feature to begin."), nil
 	}
 	ctxData, err := s.store.GetContext(feature.ID, "standard", nil)
 	if err != nil {
@@ -893,7 +893,7 @@ func (s *DevMemServer) handleSnapshot(_ context.Context, req mcplib.CallToolRequ
 	if err := s.store.SaveSnapshot(feature.ID, s.currentSessionID, content, snapshotType); err != nil {
 		return respondErr("Failed to save snapshot: %v", err)
 	}
-	return respond("# Snapshot saved (%s)\n\nContext preserved for feature: %s\nContent length: %d chars\n\nThis context can be recovered later with devmem_recover.", snapshotType, feature.Name, len(content))
+	return respond("# Snapshot saved (%s)\n\nContext preserved for feature: %s\nContent length: %d chars\n\nThis context can be recovered later with memorx_recover.", snapshotType, feature.Name, len(content))
 }
 
 func (s *DevMemServer) handleRecover(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {

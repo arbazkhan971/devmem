@@ -105,7 +105,7 @@ func percentile(sorted []int64, p int) int64 {
 
 func (r Report) PrintMarkdown() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# devmem Benchmark Report\n\n## Overall\n| Metric | Value |\n|--------|-------|\n"+
+	fmt.Fprintf(&b, "# memorX Benchmark Report\n\n## Overall\n| Metric | Value |\n|--------|-------|\n"+
 		"| Scenarios | %d |\n| Passed | %d |\n| Overall Score | %.1f%% |\n| Accuracy | %.1f%% |\n"+
 		"| Avg Latency | %dms |\n| P95 Latency | %dms |\n\n",
 		r.TotalScenarios, r.TotalPassed, r.OverallScore, r.OverallAccuracy, r.AvgLatencyMs, r.P95LatencyMs)

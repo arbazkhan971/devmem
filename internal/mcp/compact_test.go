@@ -17,7 +17,7 @@ func TestResponseCompactness_Status(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a feature with some data
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "test-compact",
 		"description": "compact test feature",
 	}))
@@ -25,7 +25,7 @@ func TestResponseCompactness_Status(t *testing.T) {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	res, err := srv.handleStatus(ctx, newReq("devmem_status", nil))
+	res, err := srv.handleStatus(ctx, newReq("memorx_status", nil))
 	if err != nil {
 		t.Fatalf("handleStatus error: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestResponseCompactness_Briefing(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "briefing-compact",
 		"description": "testing briefing compactness",
 	}))
@@ -48,7 +48,7 @@ func TestResponseCompactness_Briefing(t *testing.T) {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "Implemented the login flow with OAuth2",
 		"type":    "note",
 	}))
@@ -56,7 +56,7 @@ func TestResponseCompactness_Briefing(t *testing.T) {
 		t.Fatalf("handleRemember error: %v", err)
 	}
 
-	res, err := srv.handleBriefing(ctx, newReq("devmem_briefing", nil))
+	res, err := srv.handleBriefing(ctx, newReq("memorx_briefing", nil))
 	if err != nil {
 		t.Fatalf("handleBriefing error: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestResponseCompactness_ListFeatures(t *testing.T) {
 
 	// Create a few features
 	for _, name := range []string{"feat-alpha", "feat-beta", "feat-gamma"} {
-		_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 			"name": name,
 		}))
 		if err != nil {
@@ -81,7 +81,7 @@ func TestResponseCompactness_ListFeatures(t *testing.T) {
 		}
 	}
 
-	res, err := srv.handleListFeatures(ctx, newReq("devmem_list_features", map[string]interface{}{
+	res, err := srv.handleListFeatures(ctx, newReq("memorx_list_features", map[string]interface{}{
 		"status_filter": "all",
 	}))
 	if err != nil {
@@ -102,7 +102,7 @@ func TestResponseCompactness_GetContext_Compact(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "ctx-compact-test",
 		"description": "testing compact context",
 	}))
@@ -110,7 +110,7 @@ func TestResponseCompactness_GetContext_Compact(t *testing.T) {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "Using REST API with JSON",
 		"type":    "decision",
 	}))
@@ -118,7 +118,7 @@ func TestResponseCompactness_GetContext_Compact(t *testing.T) {
 		t.Fatalf("handleRemember error: %v", err)
 	}
 
-	res, err := srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{
+	res, err := srv.handleGetContext(ctx, newReq("memorx_get_context", map[string]interface{}{
 		"tier": "compact",
 	}))
 	if err != nil {
@@ -135,7 +135,7 @@ func TestResponseCompactness_GetContext_Standard(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "ctx-standard-test",
 		"description": "testing standard context",
 	}))
@@ -149,7 +149,7 @@ func TestResponseCompactness_GetContext_Standard(t *testing.T) {
 		"Auth via JWT tokens",
 		"Rate limiting at 100 req/min",
 	} {
-		_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+		_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 			"content": note,
 			"type":    "decision",
 		}))
@@ -158,7 +158,7 @@ func TestResponseCompactness_GetContext_Standard(t *testing.T) {
 		}
 	}
 
-	res, err := srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{
+	res, err := srv.handleGetContext(ctx, newReq("memorx_get_context", map[string]interface{}{
 		"tier": "standard",
 	}))
 	if err != nil {
@@ -175,7 +175,7 @@ func TestResponseCompactness_Search(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "search-compact-test",
 	}))
 	if err != nil {
@@ -189,7 +189,7 @@ func TestResponseCompactness_Search(t *testing.T) {
 		"Token refresh is handled by the auth service",
 	}
 	for _, note := range notes {
-		_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+		_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 			"content": note,
 			"type":    "note",
 		}))
@@ -198,7 +198,7 @@ func TestResponseCompactness_Search(t *testing.T) {
 		}
 	}
 
-	res, err := srv.handleSearch(ctx, newReq("devmem_search", map[string]interface{}{
+	res, err := srv.handleSearch(ctx, newReq("memorx_search", map[string]interface{}{
 		"query": "auth token",
 	}))
 	if err != nil {
@@ -230,14 +230,14 @@ func TestResponseCompactness_Remember(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "remember-compact-test",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	res, err := srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	res, err := srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "The database connection pool is set to 25 max connections",
 		"type":    "decision",
 	}))
@@ -256,7 +256,7 @@ func TestResponseCompactness_Status_NoFeature(t *testing.T) {
 	ctx := context.Background()
 
 	// No feature started — status should still be compact
-	res, err := srv.handleStatus(ctx, newReq("devmem_status", nil))
+	res, err := srv.handleStatus(ctx, newReq("memorx_status", nil))
 	if err != nil {
 		t.Fatalf("handleStatus error: %v", err)
 	}
@@ -272,14 +272,14 @@ func TestResponseCompactness_Health(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a feature so there's something to check health on
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "health-compact-test",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "Health check test note",
 		"type":    "note",
 	}))
@@ -287,7 +287,7 @@ func TestResponseCompactness_Health(t *testing.T) {
 		t.Fatalf("handleRemember error: %v", err)
 	}
 
-	res, err := srv.handleHealth(ctx, newReq("devmem_health", nil))
+	res, err := srv.handleHealth(ctx, newReq("memorx_health", nil))
 	if err != nil {
 		t.Fatalf("handleHealth error: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestResponseCompactness_Analytics(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a feature with some data
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "analytics-compact-test",
 		"description": "testing analytics compactness",
 	}))
@@ -311,7 +311,7 @@ func TestResponseCompactness_Analytics(t *testing.T) {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "Analytics compactness note",
 		"type":    "note",
 	}))
@@ -320,7 +320,7 @@ func TestResponseCompactness_Analytics(t *testing.T) {
 	}
 
 	// Feature-specific analytics
-	res, err := srv.handleAnalytics(ctx, newReq("devmem_analytics", map[string]interface{}{
+	res, err := srv.handleAnalytics(ctx, newReq("memorx_analytics", map[string]interface{}{
 		"feature": "analytics-compact-test",
 	}))
 	if err != nil {
@@ -336,7 +336,7 @@ func TestResponseCompactness_Analytics(t *testing.T) {
 func TestResponseCompactness_PopulatedData(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "populated-compact", "description": "populated compactness test",
 	}))
 	if err != nil {
@@ -344,7 +344,7 @@ func TestResponseCompactness_PopulatedData(t *testing.T) {
 	}
 	types := []string{"note", "decision", "blocker", "progress"}
 	for i, tp := range types {
-		_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+		_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 			"content": "Item " + tp + " content for populated test",
 			"type":    tp,
 		}))
@@ -357,12 +357,12 @@ func TestResponseCompactness_PopulatedData(t *testing.T) {
 		fn   func() (*mcplib.CallToolResult, error)
 		max  int
 	}{
-		{"status", func() (*mcplib.CallToolResult, error) { return srv.handleStatus(ctx, newReq("devmem_status", nil)) }, 600},
-		{"briefing", func() (*mcplib.CallToolResult, error) { return srv.handleBriefing(ctx, newReq("devmem_briefing", nil)) }, 400},
+		{"status", func() (*mcplib.CallToolResult, error) { return srv.handleStatus(ctx, newReq("memorx_status", nil)) }, 600},
+		{"briefing", func() (*mcplib.CallToolResult, error) { return srv.handleBriefing(ctx, newReq("memorx_briefing", nil)) }, 400},
 		{"context_compact", func() (*mcplib.CallToolResult, error) {
-			return srv.handleGetContext(ctx, newReq("devmem_get_context", map[string]interface{}{"tier": "compact"}))
+			return srv.handleGetContext(ctx, newReq("memorx_get_context", map[string]interface{}{"tier": "compact"}))
 		}, 600},
-		{"health", func() (*mcplib.CallToolResult, error) { return srv.handleHealth(ctx, newReq("devmem_health", nil)) }, 600},
+		{"health", func() (*mcplib.CallToolResult, error) { return srv.handleHealth(ctx, newReq("memorx_health", nil)) }, 600},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -382,14 +382,14 @@ func TestResponseCompactness_EndSession(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "endsession-compact-test",
 	}))
 	if err != nil {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	res, err := srv.handleEndSession(ctx, newReq("devmem_end_session", map[string]interface{}{
+	res, err := srv.handleEndSession(ctx, newReq("memorx_end_session", map[string]interface{}{
 		"summary": "Completed the initial setup and wrote unit tests",
 	}))
 	if err != nil {

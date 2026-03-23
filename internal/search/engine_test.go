@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arbaz/devmem/internal/search"
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/search"
+	"github.com/arbazkhan971/memorx/internal/storage"
 )
 
 // setupTestDB creates a temp database, migrates it, and inserts seed data.

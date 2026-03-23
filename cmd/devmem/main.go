@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/arbaz/devmem/internal/git"
-	devmem "github.com/arbaz/devmem/internal/mcp"
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/git"
+	memorx "github.com/arbazkhan971/memorx/internal/mcp"
+	"github.com/arbazkhan971/memorx/internal/storage"
 )
 
 func main() {
@@ -37,9 +37,9 @@ func main() {
 		log.Fatalf("migrate database: %v", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "devmem: initialized at %s (project: %s)\n", memDir, git.ProjectName(gitRoot))
+	fmt.Fprintf(os.Stderr, "memorx: initialized at %s (project: %s)\n", memDir, git.ProjectName(gitRoot))
 
-	srv := devmem.NewServer(db, gitRoot)
+	srv := memorx.NewServer(db, gitRoot)
 	if err := srv.Start(); err != nil {
 		log.Fatalf("server error: %v", err)
 	}

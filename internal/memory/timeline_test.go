@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/memory"
+	"github.com/arbazkhan971/memorx/internal/memory"
 	"github.com/google/uuid"
 )
 

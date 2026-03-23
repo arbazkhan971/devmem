@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/memory"
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/memory"
+	"github.com/arbazkhan971/memorx/internal/storage"
 )
 
 // newTestStore creates a Store backed by a temp DB with migrations applied.

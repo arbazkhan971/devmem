@@ -217,7 +217,7 @@ func (s *Store) GetMemoryHealth(featureID string) (*MemoryHealth, error) {
 		h.Suggestions = append(h.Suggestions, fmt.Sprintf("You have %d contradicting facts. Run consolidation.", h.ConflictCount))
 	}
 	if h.StaleFactCount > 5 {
-		h.Suggestions = append(h.Suggestions, fmt.Sprintf("%d facts haven't been referenced in 30+ days. Review with devmem_search.", h.StaleFactCount))
+		h.Suggestions = append(h.Suggestions, fmt.Sprintf("%d facts haven't been referenced in 30+ days. Review with memorx_search.", h.StaleFactCount))
 	}
 	if h.OrphanNoteCount > 10 {
 		h.Suggestions = append(h.Suggestions, fmt.Sprintf("%d notes have no connections. Consider consolidation.", h.OrphanNoteCount))

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arbaz/devmem/bench"
+	"github.com/arbazkhan971/memorx/bench"
 )
 
 func main() {
@@ -45,10 +45,10 @@ func main() {
 	}
 
 	// Create evaluator with temp DB
-	tmpDir, _ := os.MkdirTemp("", "devmem-bench-*")
+	tmpDir, _ := os.MkdirTemp("", "memorx-bench-*")
 	defer os.RemoveAll(tmpDir)
 
-	// Need to init a git repo in tmpDir for devmem to work
+	// Need to init a git repo in tmpDir for memorx to work
 	// exec.Command("git", "init", tmpDir).Run()
 
 	eval, err := bench.NewEvaluator(tmpDir+"/memory.db", tmpDir)

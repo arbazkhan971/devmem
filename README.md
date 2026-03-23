@@ -1,4 +1,4 @@
-# devmem
+# memorX
 
 SOTA developer memory system. Single Go binary MCP server that gives any coding CLI persistent, project-scoped memory across sessions, tools, and features.
 
@@ -8,7 +8,7 @@ SOTA developer memory system. Single Go binary MCP server that gives any coding 
 
 Every AI coding CLI (Claude Code, Codex, Cursor, Windsurf, Gemini CLI) suffers from amnesia. Close a session, lose all context. Switch tools, start from scratch. You waste 5-10 minutes per session re-explaining your project, decisions, and progress.
 
-devmem fixes this. One binary, works everywhere, remembers everything.
+memorX fixes this. One binary, works everywhere, remembers everything.
 
 ## What It Does
 
@@ -30,21 +30,21 @@ devmem fixes this. One binary, works everywhere, remembers everything.
 ## Install
 
 ```bash
-go install github.com/arbazkhan971/devmem/cmd/devmem@latest
+go install github.com/arbazkhan971/memorx/cmd/devmem@latest
 ```
 
 Or build from source:
 ```bash
-git clone https://github.com/arbazkhan971/devmem.git
-cd devmem
-go build -o bin/devmem ./cmd/devmem
+git clone https://github.com/arbazkhan971/memorx.git
+cd memorx
+go build -o bin/memorx ./cmd/devmem
 ```
 
 ## Setup
 
 ### Claude Code
 ```bash
-claude mcp add -s user --transport stdio devmem -- devmem
+claude mcp add -s user --transport stdio memorx -- memorx
 ```
 
 ### Cursor
@@ -52,21 +52,21 @@ Add to `.cursor/mcp.json`:
 ```json
 {
     "mcpServers": {
-        "devmem": { "command": "devmem", "transport": "stdio" }
+        "memorx": { "command": "memorx", "transport": "stdio" }
     }
 }
 ```
 
 ### Windsurf / Codex / Other MCP Clients
-Add `devmem` as a stdio MCP server in your tool's MCP configuration.
+Add `memorx` as a stdio MCP server in your tool's MCP configuration.
 
 ### Recommended: Add to CLAUDE.md
 ```markdown
 ## Memory
-This project uses devmem. At the start of every session:
-1. Call devmem_briefing to see where we left off
-2. When making decisions, call devmem_remember with type="decision"
-3. Before ending, call devmem_end_session with a summary
+This project uses memorX. At the start of every session:
+1. Call memorx_briefing to see where we left off
+2. When making decisions, call memorx_remember with type="decision"
+3. Before ending, call memorx_end_session with a summary
 ```
 
 ## Tools (17)
@@ -74,48 +74,48 @@ This project uses devmem. At the start of every session:
 ### Core
 | Tool | What it does |
 |------|-------------|
-| `devmem_status` | Project overview, active feature, plan progress |
-| `devmem_briefing` | Quick "welcome back" — what you were working on, where you left off |
-| `devmem_list_features` | All features with status and commit breakdown |
-| `devmem_start_feature` | Create or resume a feature |
-| `devmem_switch_feature` | Switch to a different feature |
-| `devmem_get_context` | Full context at 3 tiers: compact (~200 tokens) / standard (~500) / detailed (~1500) |
-| `devmem_sync` | Pull git commits, classify intent, auto-match to plan steps |
-| `devmem_remember` | Save a note, decision, blocker, or next step. Auto-links to related memories |
-| `devmem_search` | 3-layer search (FTS5 + trigram + fuzzy) across all memory types |
-| `devmem_save_plan` | Store a plan with trackable steps. Supersedes old plans, carries completed steps |
+| `memorx_status` | Project overview, active feature, plan progress |
+| `memorx_briefing` | Quick "welcome back" — what you were working on, where you left off |
+| `memorx_list_features` | All features with status and commit breakdown |
+| `memorx_start_feature` | Create or resume a feature |
+| `memorx_switch_feature` | Switch to a different feature |
+| `memorx_get_context` | Full context at 3 tiers: compact (~200 tokens) / standard (~500) / detailed (~1500) |
+| `memorx_sync` | Pull git commits, classify intent, auto-match to plan steps |
+| `memorx_remember` | Save a note, decision, blocker, or next step. Auto-links to related memories |
+| `memorx_search` | 3-layer search (FTS5 + trigram + fuzzy) across all memory types |
+| `memorx_save_plan` | Store a plan with trackable steps. Supersedes old plans, carries completed steps |
 
 ### Session Management
 | Tool | What it does |
 |------|-------------|
-| `devmem_end_session` | End session with a summary — next session reads it automatically |
-| `devmem_import_session` | Bootstrap memory from current conversation (decisions, facts, plans) |
-| `devmem_export` | Export feature memory as markdown or JSON |
+| `memorx_end_session` | End session with a summary — next session reads it automatically |
+| `memorx_import_session` | Bootstrap memory from current conversation (decisions, facts, plans) |
+| `memorx_export` | Export feature memory as markdown or JSON |
 
 ### Intelligence
 | Tool | What it does |
 |------|-------------|
-| `devmem_analytics` | Dev patterns: session counts, commit intent breakdown, blockers, time spent |
-| `devmem_health` | Memory health score (0-100) with suggestions (conflicts, stale data, orphans) |
-| `devmem_forget` | Smart cleanup: stale facts, stale notes, completed features, or specific IDs |
-| `devmem_generate_rules` | Auto-generate AGENTS.md from memory — universal rules file for all CLIs |
+| `memorx_analytics` | Dev patterns: session counts, commit intent breakdown, blockers, time spent |
+| `memorx_health` | Memory health score (0-100) with suggestions (conflicts, stale data, orphans) |
+| `memorx_forget` | Smart cleanup: stale facts, stale notes, completed features, or specific IDs |
+| `memorx_generate_rules` | Auto-generate AGENTS.md from memory — universal rules file for all CLIs |
 
 ## How It Works
 
 ```
 You open Claude Code on Monday:
-  devmem: "Welcome back! Active feature: auth-v2 (branch: feature/auth-v2)
+  memorX: "Welcome back! Active feature: auth-v2 (branch: feature/auth-v2)
            Plan: Auth Migration (4/7 steps done)
            Last session: Friday via claude-code
            Recent: Token refresh working, need to test expiry edge cases"
 
 You work, make commits, make decisions.
-  devmem_sync → captures commits, classifies intent, matches plan steps
-  devmem_remember → stores decisions with auto-linking
-  devmem_end_session → "Completed token refresh tests. Next: update routes"
+  memorx_sync → captures commits, classifies intent, matches plan steps
+  memorx_remember → stores decisions with auto-linking
+  memorx_end_session → "Completed token refresh tests. Next: update routes"
 
 Tuesday, you open Cursor on the same project:
-  devmem: "Welcome back! Last session summary: Completed token refresh tests.
+  memorX: "Welcome back! Last session summary: Completed token refresh tests.
            Next: update routes. Plan: 5/7 steps done."
 
   Full context in 1 tool call. Zero re-explaining.
@@ -126,7 +126,7 @@ Wednesday, you open Codex CLI:
 
 ## Parallel Work (Multiple CLIs Simultaneously)
 
-devmem supports concurrent access via SQLite WAL mode:
+memorX supports concurrent access via SQLite WAL mode:
 
 ```
 Terminal 1: Claude Code          Terminal 2: Cursor
@@ -145,12 +145,12 @@ Both tools read/write to the same database. Different features don't interfere. 
 
 ## Importing Existing Sessions
 
-Already been working without devmem? Bootstrap from your current conversation:
+Already been working without memorX? Bootstrap from your current conversation:
 
 ```
-You: "Import everything we've discussed into devmem"
+You: "Import everything we've discussed into memorX"
 
-Claude calls devmem_import_session with:
+Claude calls memorx_import_session with:
   feature_name: "auth-v2"
   decisions: ["Chose better-auth for compliance", "Using opaque tokens"]
   progress_notes: ["Middleware extracted", "Token refresh implemented"]
@@ -171,7 +171,7 @@ Result: 8 items imported, 3 links created. Future sessions have full context.
 MCP Client (Claude Code / Cursor / Codex / Windsurf)
     │ stdio
     ▼
-devmem (single Go binary, 13MB)
+memorX (single Go binary, 13MB)
     ├── MCP Layer (17 tools + 2 resources)
     ├── Session Manager (features, sessions, briefings)
     ├── Git Engine (commits, intent classification, sync)
@@ -192,7 +192,7 @@ devmem (single Go binary, 13MB)
 
 ## Benchmark
 
-devmem ships with a 70-scenario benchmark across 7 developer memory abilities:
+memorX ships with a 70-scenario benchmark across 7 developer memory abilities:
 
 ```bash
 make benchmark
@@ -214,11 +214,11 @@ Overall: 99.6% score | 100% accuracy | <1ms latency
 
 ## Token Savings
 
-devmem reduces wasted tokens by eliminating context re-establishment:
+memorX reduces wasted tokens by eliminating context re-establishment:
 
 ```
-Without devmem: 5,000-10,000 tokens per session re-explaining context
-With devmem:    200-500 tokens via devmem_briefing + devmem_get_context
+Without memorX: 5,000-10,000 tokens per session re-explaining context
+With memorX:    200-500 tokens via memorx_briefing + memorx_get_context
 
 Estimated savings: ~$265/month for heavy users (3+ sessions/day)
 ```
@@ -227,7 +227,7 @@ Estimated savings: ~$265/month for heavy users (3+ sessions/day)
 
 No other MCP memory tool combines all of these:
 
-| Feature | devmem | Mem0 | Zep | Supermemory | Letta | KeepGoing |
+| Feature | memorX | Mem0 | Zep | Supermemory | Letta | KeepGoing |
 |---------|--------|------|-----|-------------|-------|-----------|
 | Session/feature tracking | Yes | No | No | No | No | Partial |
 | Git commit integration | Yes | No | No | No | No | Partial |
@@ -246,7 +246,7 @@ No other MCP memory tool combines all of these:
 
 ## Cloud Roadmap
 
-devmem is local-first but designed for future cloud sync:
+memorX is local-first but designed for future cloud sync:
 - Bi-temporal facts enable conflict-free merging
 - Append-only memory links can be union-merged
 - Session attribution tracks which machine/tool created each memory

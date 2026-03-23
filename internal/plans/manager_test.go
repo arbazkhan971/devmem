@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/plans"
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/plans"
+	"github.com/arbazkhan971/memorx/internal/storage"
 	"github.com/google/uuid"
 )
 

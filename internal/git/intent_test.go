@@ -3,7 +3,7 @@ package git_test
 import (
 	"testing"
 
-	"github.com/arbaz/devmem/internal/git"
+	"github.com/arbazkhan971/memorx/internal/git"
 )
 
 func TestClassifyIntent_ConventionalCommits(t *testing.T) {

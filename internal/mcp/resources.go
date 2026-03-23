@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arbaz/devmem/internal/git"
+	"github.com/arbazkhan971/memorx/internal/git"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -15,7 +15,7 @@ func textResource(uri, text string) ([]mcplib.ResourceContents, error) {
 }
 
 func (s *DevMemServer) handleResourceActiveContext(_ context.Context, _ mcplib.ReadResourceRequest) ([]mcplib.ResourceContents, error) {
-	const uri = "devmem://context/active"
+	const uri = "memorx://context/active"
 	feature, err := s.store.GetActiveFeature()
 	if err != nil {
 		return textResource(uri, "No active feature.")
@@ -28,7 +28,7 @@ func (s *DevMemServer) handleResourceActiveContext(_ context.Context, _ mcplib.R
 }
 
 func (s *DevMemServer) handleResourceRecentChanges(_ context.Context, _ mcplib.ReadResourceRequest) ([]mcplib.ResourceContents, error) {
-	const uri = "devmem://changes/recent"
+	const uri = "memorx://changes/recent"
 	feature, err := s.store.GetActiveFeature()
 	if err != nil {
 		return textResource(uri, "No active feature.")

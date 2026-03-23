@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arbaz/devmem/internal/memory"
+	"github.com/arbazkhan971/memorx/internal/memory"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -131,24 +131,24 @@ func (s *DevMemServer) exportMarkdown(feature *memory.Feature, ctx *memory.Conte
 
 func formatBriefing(ctx *memory.Context, feature *memory.Feature) string {
 	if feature == nil {
-		return "devmem: No active feature. Use devmem_start_feature to begin."
+		return "memorx: No active feature. Use memorx_start_feature to begin."
 	}
 	var lines []string
-	fl := fmt.Sprintf("devmem: Welcome back! Active feature: %s", feature.Name)
+	fl := fmt.Sprintf("memorx: Welcome back! Active feature: %s", feature.Name)
 	if feature.Branch != "" {
 		fl += fmt.Sprintf(" [%s]", feature.Branch)
 	}
 	lines = append(lines, fl)
 	if ctx.Plan != nil {
-		lines = append(lines, fmt.Sprintf("devmem: plan: %s (%d/%d steps done)", ctx.Plan.Title, ctx.Plan.CompletedStep, ctx.Plan.TotalSteps))
+		lines = append(lines, fmt.Sprintf("memorx: plan: %s (%d/%d steps done)", ctx.Plan.Title, ctx.Plan.CompletedStep, ctx.Plan.TotalSteps))
 	}
 	if len(ctx.SessionHistory) > 0 {
-		lines = append(lines, fmt.Sprintf("devmem: last: %s via %s", formatTimeAgo(ctx.SessionHistory[0].StartedAt), ctx.SessionHistory[0].Tool))
+		lines = append(lines, fmt.Sprintf("memorx: last: %s via %s", formatTimeAgo(ctx.SessionHistory[0].StartedAt), ctx.SessionHistory[0].Tool))
 	}
 	if len(ctx.RecentNotes) > 0 {
-		lines = append(lines, fmt.Sprintf("devmem: recent: \"%s\"", truncate(ctx.RecentNotes[0].Content, 80)))
+		lines = append(lines, fmt.Sprintf("memorx: recent: \"%s\"", truncate(ctx.RecentNotes[0].Content, 80)))
 	}
-	lines = append(lines, "devmem: tip: say \"where did I leave off?\" for full context")
+	lines = append(lines, "memorx: tip: say \"where did I leave off?\" for full context")
 	return strings.Join(lines, "\n")
 }
 

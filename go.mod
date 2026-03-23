@@ -1,4 +1,4 @@
-module github.com/arbaz/devmem
+module github.com/arbazkhan971/memorx
 
 go 1.26.1
 

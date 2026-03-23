@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/memory"
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/memory"
+	"github.com/arbazkhan971/memorx/internal/storage"
 )
 
 func TestWriteSnapshot_EmptyDB(t *testing.T) {

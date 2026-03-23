@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arbaz/devmem/internal/consolidation"
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/consolidation"
+	"github.com/arbazkhan971/memorx/internal/storage"
 )
 
 // newTestDB creates a temp DB with migrations applied.

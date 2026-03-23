@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arbaz/devmem/internal/memory"
-	"github.com/arbaz/devmem/internal/plans"
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/memory"
+	"github.com/arbazkhan971/memorx/internal/plans"
+	"github.com/arbazkhan971/memorx/internal/storage"
 )
 
 func TestGetContext_Compact(t *testing.T) {

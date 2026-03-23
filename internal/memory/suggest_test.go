@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/memory"
-	"github.com/arbaz/devmem/internal/plans"
+	"github.com/arbazkhan971/memorx/internal/memory"
+	"github.com/arbazkhan971/memorx/internal/plans"
 	"github.com/google/uuid"
 )
 
@@ -136,7 +136,7 @@ func TestGetSuggestions_LowHealth(t *testing.T) {
 
 	found := false
 	for _, s := range suggestions {
-		if s.Category == "health" && strings.Contains(s.Message, "devmem_forget") {
+		if s.Category == "health" && strings.Contains(s.Message, "memorx_forget") {
 			found = true
 		}
 	}

@@ -1,4 +1,4 @@
-# devmem Implementation Plan
+# memorX Implementation Plan
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -13,8 +13,8 @@
 ## File Structure
 
 ```
-devmem/
-├── cmd/devmem/main.go                    # Entry point, CLI flags, MCP server bootstrap
+memorX/
+├── cmd/memorX/main.go                    # Entry point, CLI flags, MCP server bootstrap
 ├── internal/
 │   ├── storage/
 │   │   ├── db.go                         # SQLite connection manager (WAL, single writer + readers)
@@ -56,7 +56,7 @@ devmem/
 ├── go.mod
 ├── go.sum
 ├── Makefile
-└── docs/specs/2026-03-23-devmem-design.md
+└── docs/specs/2026-03-23-memorX-design.md
 ```
 
 ---
@@ -75,8 +75,8 @@ devmem/
 - [ ] **Step 1: Initialize Go module**
 
 ```bash
-cd /Users/arbaz/devmem
-go mod init github.com/arbaz/devmem
+cd /Users/arbaz/memorX
+go mod init github.com/arbaz/memorX
 ```
 
 - [ ] **Step 2: Add core dependencies**
@@ -93,13 +93,13 @@ go get github.com/mark3labs/mcp-go
 .PHONY: build test run clean
 
 build:
-	go build -o bin/devmem ./cmd/devmem
+	go build -o bin/memorX ./cmd/memorX
 
 test:
 	go test ./... -v -count=1
 
 run: build
-	./bin/devmem
+	./bin/memorX
 
 clean:
 	rm -rf bin/
@@ -131,7 +131,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbaz/memorX/internal/storage"
 )
 
 func TestNewDB_CreatesFile(t *testing.T) {
@@ -171,7 +171,7 @@ func TestNewDB_WALMode(t *testing.T) {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /Users/arbaz/devmem && go test ./internal/storage/ -v -run TestNewDB
+cd /Users/arbaz/memorX && go test ./internal/storage/ -v -run TestNewDB
 ```
 Expected: FAIL — package doesn't exist yet.
 
@@ -279,7 +279,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbaz/memorX/internal/storage"
 )
 
 func TestMigrate_CreatesAllTables(t *testing.T) {
@@ -400,7 +400,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/git"
+	"github.com/arbaz/memorX/internal/git"
 )
 
 func TestFindGitRoot_FromSubdir(t *testing.T) {
@@ -499,12 +499,12 @@ git commit -m "feat: add git root detection and .memory/ directory setup"
 ### Task 1.5: Entry point that ties it together
 
 **Files:**
-- Create: `cmd/devmem/main.go`
+- Create: `cmd/memorX/main.go`
 
 - [ ] **Step 1: Create main.go**
 
 ```go
-// cmd/devmem/main.go
+// cmd/memorX/main.go
 package main
 
 import (
@@ -512,8 +512,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/arbaz/devmem/internal/git"
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbaz/memorX/internal/git"
+	"github.com/arbaz/memorX/internal/storage"
 )
 
 func main() {
@@ -543,7 +543,7 @@ func main() {
 		log.Fatalf("migrate database: %v", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "devmem: initialized at %s\n", memDir)
+	fmt.Fprintf(os.Stderr, "memorX: initialized at %s\n", memDir)
 	// MCP server will be added in Chunk 2
 }
 ```
@@ -551,15 +551,15 @@ func main() {
 - [ ] **Step 2: Build and verify**
 
 ```bash
-cd /Users/arbaz/devmem && make build
-./bin/devmem
+cd /Users/arbaz/memorX && make build
+./bin/memorX
 ```
-Expected: prints "devmem: initialized at /Users/arbaz/devmem/.memory"
+Expected: prints "memorX: initialized at /Users/arbaz/memorX/.memory"
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add cmd/devmem/main.go
+git add cmd/memorX/main.go
 git commit -m "feat: add entry point with git detection and DB initialization"
 ```
 
@@ -891,7 +891,7 @@ Replace the placeholder print with actual MCP server loop.
 - [ ] **Step 3: Build and verify server starts**
 
 ```bash
-make build && echo '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"capabilities":{}}}' | ./bin/devmem
+make build && echo '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"capabilities":{}}}' | ./bin/memorX
 ```
 Expected: JSON-RPC response with tool list.
 
@@ -909,51 +909,51 @@ git commit -m "feat: add MCP stdio server with tool/resource registration"
 - Create: `internal/mcp/tools.go`
 - Create: `internal/mcp/resources.go`
 
-- [ ] **Step 1: Implement devmem_status handler**
+- [ ] **Step 1: Implement memorx_status handler**
 
 Calls `store.GetActiveFeature()`, `store.GetActivePlan()`, `consolidation.GetState()`. Returns JSON.
 
-- [ ] **Step 2: Implement devmem_list_features handler**
+- [ ] **Step 2: Implement memorx_list_features handler**
 
 Calls `store.ListFeatures()` with optional status filter. Enriches with intent breakdown from commits.
 
-- [ ] **Step 3: Implement devmem_start_feature handler**
+- [ ] **Step 3: Implement memorx_start_feature handler**
 
 Calls `store.StartFeature(name, description)`. Creates session. Returns compact context.
 
-- [ ] **Step 4: Implement devmem_switch_feature handler**
+- [ ] **Step 4: Implement memorx_switch_feature handler**
 
 Pauses current, activates target, creates session, returns compact context.
 
-- [ ] **Step 5: Implement devmem_get_context handler**
+- [ ] **Step 5: Implement memorx_get_context handler**
 
 Calls `store.GetContext(featureID, tier, asOf)`. Returns tiered response.
 
-- [ ] **Step 6: Implement devmem_sync handler**
+- [ ] **Step 6: Implement memorx_sync handler**
 
 Calls git reader → stores commits → classifies intent → matches plan steps → auto-links.
 
-- [ ] **Step 7: Implement devmem_remember handler**
+- [ ] **Step 7: Implement memorx_remember handler**
 
 Stores note → extracts facts → checks contradictions → auto-links → detects plan-like content.
 
-- [ ] **Step 8: Implement devmem_search handler**
+- [ ] **Step 8: Implement memorx_search handler**
 
 Calls search engine with query, scope, types, asOf.
 
-- [ ] **Step 9: Implement devmem_save_plan handler**
+- [ ] **Step 9: Implement memorx_save_plan handler**
 
 Calls plan manager → supersedes old plan → matches existing commits to steps.
 
 - [ ] **Step 10: Implement resource handlers**
 
-`devmem://context/active` returns compact context. `devmem://changes/recent` returns commits since last session.
+`memorX://context/active` returns compact context. `memorX://changes/recent` returns commits since last session.
 
 - [ ] **Step 11: Build and integration test**
 
 ```bash
 make build
-claude mcp add -s project --transport stdio devmem -- /Users/arbaz/devmem/bin/devmem
+claude mcp add -s project --transport stdio memorX -- /Users/arbaz/memorX/bin/memorX
 ```
 Test each tool manually via Claude Code.
 
@@ -1024,11 +1024,11 @@ git commit -m "feat: add semantic diff engine with 3-phase entity matching"
 
 **Files:**
 - Modify: `internal/memory/commits.go`
-- Modify: `internal/mcp/tools.go` (devmem_sync handler)
+- Modify: `internal/mcp/tools.go` (memorx_sync handler)
 
 - [ ] **Step 1: Update SyncCommits to call semantic diff for each commit's changed files**
 - [ ] **Step 2: Store results in semantic_changes table**
-- [ ] **Step 3: Include semantic changes in devmem_get_context responses**
+- [ ] **Step 3: Include semantic changes in memorx_get_context responses**
 - [ ] **Step 4: Run all tests — PASS**
 - [ ] **Step 5: Commit**
 
@@ -1195,8 +1195,8 @@ git commit -m "test: add end-to-end integration test"
 
 - [ ] **Step 1: Write README with:**
 
-- What devmem is (one paragraph)
-- Install: `go install github.com/arbaz/devmem/cmd/devmem@latest`
+- What memorX is (one paragraph)
+- Install: `go install github.com/arbaz/memorX/cmd/memorX@latest`
 - Setup for Claude Code, Cursor, Windsurf (3 examples)
 - Tool reference table
 - Architecture diagram (ASCII)
@@ -1225,4 +1225,4 @@ git commit -m "docs: add README with install and setup instructions"
 
 **Total: 30 tasks, ~150 steps**
 
-After Chunk 6, devmem is fully usable. Chunks 7-8 add the SOTA differentiators. Chunk 9 polishes for release.
+After Chunk 6, memorX is fully usable. Chunks 7-8 add the SOTA differentiators. Chunk 9 polishes for release.

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arbaz/devmem/internal/git"
+	"github.com/arbazkhan971/memorx/internal/git"
 )
 
 // initTestRepoWithCommits creates a temp git repo with several known commits.

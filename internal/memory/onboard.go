@@ -345,7 +345,7 @@ func intentPrefix(intentType string) string {
 	}
 }
 
-// ImportSharedMemory reads an exported devmem JSON/markdown and imports
+// ImportSharedMemory reads an exported memorX JSON/markdown and imports
 // features, notes, facts, and plans. Returns counts of imported items.
 type ImportResult struct {
 	Features  int

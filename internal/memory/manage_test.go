@@ -3,7 +3,7 @@ package memory_test
 import (
 	"testing"
 
-	"github.com/arbaz/devmem/internal/memory"
+	"github.com/arbazkhan971/memorx/internal/memory"
 )
 
 func TestPinMemory_Note(t *testing.T) {

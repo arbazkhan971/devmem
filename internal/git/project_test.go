@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/git"
+	"github.com/arbazkhan971/memorx/internal/git"
 )
 
 func initTestRepo(t *testing.T) string {

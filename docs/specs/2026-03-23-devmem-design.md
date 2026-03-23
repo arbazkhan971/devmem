@@ -1,4 +1,4 @@
-# devmem — SOTA Developer Memory System
+# memorX — SOTA Developer Memory System
 
 **Date:** 2026-03-23
 **Author:** Arbaz
@@ -27,7 +27,7 @@ Existing solutions (Mem0, Zep, Supermemory, Letta, KeepGoing, SaveContext, Engra
 6. Cross-tool compatibility via MCP standard
 7. Single binary, zero dependencies, local-first
 
-**devmem** fills this gap.
+**memorX** fills this gap.
 
 ---
 
@@ -77,7 +77,7 @@ Plans are bi-temporal: when requirements change and a new plan is generated, the
 
 ### 2.6 Semantic Code Changes
 
-Instead of storing "lines 45-67 changed", devmem uses tree-sitter to understand what code *entities* changed: "function ValidateToken was modified — added rate limiting check."
+Instead of storing "lines 45-67 changed", memorX uses tree-sitter to understand what code *entities* changed: "function ValidateToken was modified — added rate limiting check."
 
 This is 2.3x more useful to AI agents than raw diffs (per research from Ataraxy-Labs' `sem` tool).
 
@@ -113,7 +113,7 @@ A background goroutine that runs on entropy triggers (not fixed schedules):
                            │
                            ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│                      devmem (single Go binary)                       │
+│                      memorX (single Go binary)                       │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │                    MCP LAYER (stdio transport)                │   │
@@ -168,7 +168,7 @@ A background goroutine that runs on entropy triggers (not fixed schedules):
 
 ### 3.1 Transport: stdio
 
-The MCP server uses stdio transport (not SSE/HTTP). The MCP client spawns `devmem` as a subprocess and communicates via stdin/stdout. This means:
+The MCP server uses stdio transport (not SSE/HTTP). The MCP client spawns `memorX` as a subprocess and communicates via stdin/stdout. This means:
 - No ports to configure
 - No daemon to manage
 - No Docker required
@@ -176,7 +176,7 @@ The MCP server uses stdio transport (not SSE/HTTP). The MCP client spawns `devme
 
 ### 3.2 Project Detection
 
-On startup, devmem:
+On startup, memorX:
 1. Gets the current working directory from the MCP client
 2. Walks up to find `.git` root
 3. Uses `<git-root>/.memory/` as the storage directory
@@ -494,7 +494,7 @@ CREATE VIRTUAL TABLE commits_trigram USING fts5(
 
 ### 5.1 Tools (9)
 
-#### `devmem_status`
+#### `memorx_status`
 
 Returns project overview: active feature, plan progress, entropy score, recent activity.
 
@@ -514,7 +514,7 @@ Returns: {
 
 ---
 
-#### `devmem_list_features`
+#### `memorx_list_features`
 
 All features with status, commit intent breakdown, plan progress.
 
@@ -534,7 +534,7 @@ Returns: [{
 
 ---
 
-#### `devmem_start_feature`
+#### `memorx_start_feature`
 
 Create new or resume existing feature by name.
 
@@ -558,19 +558,19 @@ Returns: {
 
 ---
 
-#### `devmem_switch_feature`
+#### `memorx_switch_feature`
 
 Switch active feature.
 
 ```
 Parameters:
     name: string (required)
-Returns: same as devmem_start_feature with action="switched"
+Returns: same as memorx_start_feature with action="switched"
 ```
 
 ---
 
-#### `devmem_get_context`
+#### `memorx_get_context`
 
 Full context retrieval with tiered output (inspired by KeepGoing).
 
@@ -599,7 +599,7 @@ Returns: {
 
 ---
 
-#### `devmem_sync`
+#### `memorx_sync`
 
 Pull recent git commits into the current feature's session.
 
@@ -627,7 +627,7 @@ Returns: {
 
 ---
 
-#### `devmem_remember`
+#### `memorx_remember`
 
 Store a memory — progress note, decision, blocker, next step, or plan.
 
@@ -655,7 +655,7 @@ Returns: {
 
 ---
 
-#### `devmem_search`
+#### `memorx_search`
 
 3-layer search across all memory types.
 
@@ -687,7 +687,7 @@ Results are boosted by:
 
 ---
 
-#### `devmem_save_plan`
+#### `memorx_save_plan`
 
 Explicitly store a plan with steps.
 
@@ -714,11 +714,11 @@ Returns: {
 
 ### 5.2 Resources (2)
 
-#### `devmem://context/active`
+#### `memorX://context/active`
 
 Auto-included when client connects. Returns compact context for the active feature.
 
-#### `devmem://changes/recent`
+#### `memorX://changes/recent`
 
 Returns changes since the client's last session. Useful for "what happened while I was away?"
 
@@ -930,7 +930,7 @@ Future versions can optionally use an LLM for:
 
 ### 9.1 Plan Auto-Detection
 
-When `devmem_remember` receives content, check for plan-like structure:
+When `memorx_remember` receives content, check for plan-like structure:
 
 ```go
 func isPlanLike(content string) bool {
@@ -983,9 +983,9 @@ When a new plan supersedes an old one:
 ## 10. File Layout
 
 ```
-devmem/
+memorX/
 ├── cmd/
-│   └── devmem/
+│   └── memorX/
 │       └── main.go                 # Entry point, MCP server setup
 ├── internal/
 │   ├── mcp/
@@ -1029,7 +1029,7 @@ devmem/
 │       └── links.go                # Link discovery
 ├── docs/
 │   └── specs/
-│       └── 2026-03-23-devmem-design.md   # This file
+│       └── 2026-03-23-memorX-design.md   # This file
 ├── go.mod
 ├── go.sum
 ├── Makefile
@@ -1075,14 +1075,14 @@ github.com/google/uuid               # UUID generation
 
 ```bash
 # Build
-go install github.com/arbaz/devmem/cmd/devmem@latest
+go install github.com/arbaz/memorX/cmd/memorX@latest
 
 # Register as MCP server (user-level, works for all projects)
-claude mcp add -s user --transport stdio devmem -- devmem
+claude mcp add -s user --transport stdio memorX -- memorX
 
 # Verify
 claude mcp list
-# → devmem: ✓ Connected
+# → memorX: ✓ Connected
 ```
 
 ### For Cursor
@@ -1091,8 +1091,8 @@ Add to `.cursor/mcp.json`:
 ```json
 {
     "mcpServers": {
-        "devmem": {
-            "command": "devmem",
+        "memorX": {
+            "command": "memorX",
             "transport": "stdio"
         }
     }
@@ -1101,7 +1101,7 @@ Add to `.cursor/mcp.json`:
 
 ### For Windsurf / Other MCP Clients
 
-Same pattern — add `devmem` as a stdio MCP server in the tool's config.
+Same pattern — add `memorX` as a stdio MCP server in the tool's config.
 
 ---
 
@@ -1162,6 +1162,6 @@ New memories → new chunk (never modify old). Push chunks to cloud. Pull chunks
 ### User Experience
 
 - [ ] Zero configuration required (auto-detects project from git root)
-- [ ] First-time use just works: `claude mcp add devmem -- devmem`
+- [ ] First-time use just works: `claude mcp add memorX -- memorX`
 - [ ] Tiered context respects token budgets
 - [ ] `current.json` is always human-readable and up-to-date

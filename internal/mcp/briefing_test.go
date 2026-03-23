@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/memory"
+	"github.com/arbazkhan971/memorx/internal/memory"
 )
 
 func TestFormatBriefing_ActiveFeatureWithPlan(t *testing.T) {
@@ -111,7 +111,7 @@ func TestFormatBriefing_IncludesLastSession(t *testing.T) {
 func TestHandleBriefing_NoActiveFeature(t *testing.T) {
 	srv, _ := setupTestServer(t)
 
-	res, err := srv.handleBriefing(context.Background(), newReq("devmem_briefing", nil))
+	res, err := srv.handleBriefing(context.Background(), newReq("memorx_briefing", nil))
 	if err != nil {
 		t.Fatalf("handleBriefing error: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestHandleBriefing_WithActiveFeature(t *testing.T) {
 	ctx := context.Background()
 
 	// Start a feature and add some data
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "briefing-test",
 		"description": "testing the briefing tool",
 	}))
@@ -135,7 +135,7 @@ func TestHandleBriefing_WithActiveFeature(t *testing.T) {
 		t.Fatalf("handleStartFeature error: %v", err)
 	}
 
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "Set up the database schema with migrations",
 		"type":    "note",
 	}))
@@ -143,14 +143,14 @@ func TestHandleBriefing_WithActiveFeature(t *testing.T) {
 		t.Fatalf("handleRemember error: %v", err)
 	}
 
-	res, err := srv.handleBriefing(ctx, newReq("devmem_briefing", nil))
+	res, err := srv.handleBriefing(ctx, newReq("memorx_briefing", nil))
 	if err != nil {
 		t.Fatalf("handleBriefing error: %v", err)
 	}
 
 	text := resultText(t, res)
-	if !strings.Contains(text, "devmem:") {
-		t.Errorf("briefing should start with 'devmem:', got:\n%s", text)
+	if !strings.Contains(text, "memorx:") {
+		t.Errorf("briefing should start with 'memorx:', got:\n%s", text)
 	}
 	if !strings.Contains(text, "briefing-test") {
 		t.Errorf("briefing should contain feature name, got:\n%s", text)

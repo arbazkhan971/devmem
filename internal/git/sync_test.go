@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arbaz/devmem/internal/git"
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/git"
+	"github.com/arbazkhan971/memorx/internal/storage"
 	"github.com/google/uuid"
 )
 

@@ -169,7 +169,7 @@ func (s *Store) suggestHealthIssues(r *sql.DB) ([]Suggestion, error) {
 	if h.Score < 70 {
 		return []Suggestion{{
 			Category: "health",
-			Message:  fmt.Sprintf("Memory health is %.0f. Run devmem_forget to clean up.", h.Score),
+			Message:  fmt.Sprintf("Memory health is %.0f. Run memorx_forget to clean up.", h.Score),
 		}}, nil
 	}
 	return nil, nil

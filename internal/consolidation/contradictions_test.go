@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arbaz/devmem/internal/consolidation"
+	"github.com/arbazkhan971/memorx/internal/consolidation"
 	"github.com/google/uuid"
 )
 

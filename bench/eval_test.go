@@ -24,7 +24,7 @@ func setupEvaluator(t *testing.T) *Evaluator {
 		t.Fatalf("git init: %v\n%s", err, out)
 	}
 
-	dbPath := filepath.Join(dir, ".devmem", "memory.db")
+	dbPath := filepath.Join(dir, ".memory", "memory.db")
 	ev, err := NewEvaluator(dbPath, dir)
 	if err != nil {
 		t.Fatalf("NewEvaluator: %v", err)
@@ -50,7 +50,7 @@ func TestNewEvaluator_CreatesDB(t *testing.T) {
 		t.Fatalf("git init: %v\n%s", err, out)
 	}
 
-	dbPath := filepath.Join(dir, ".devmem", "memory.db")
+	dbPath := filepath.Join(dir, ".memory", "memory.db")
 	ev, err := NewEvaluator(dbPath, dir)
 	if err != nil {
 		t.Fatalf("NewEvaluator: %v", err)

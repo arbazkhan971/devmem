@@ -13,7 +13,7 @@ func TestHandleOnboard_NoData(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleOnboard(ctx, newReq("devmem_onboard", nil))
+	res, err := srv.handleOnboard(ctx, newReq("memorx_onboard", nil))
 	if err != nil {
 		t.Fatalf("handleOnboard error: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestHandleOnboard_WithFeature(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, err := srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name":        "onboard-test",
 		"description": "Testing onboarding",
 	}))
@@ -39,7 +39,7 @@ func TestHandleOnboard_WithFeature(t *testing.T) {
 		t.Fatalf("handleStartFeature: %v", err)
 	}
 
-	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	_, err = srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "Use PostgreSQL for persistence",
 		"type":    "decision",
 	}))
@@ -47,7 +47,7 @@ func TestHandleOnboard_WithFeature(t *testing.T) {
 		t.Fatalf("handleRemember: %v", err)
 	}
 
-	res, err := srv.handleOnboard(ctx, newReq("devmem_onboard", nil))
+	res, err := srv.handleOnboard(ctx, newReq("memorx_onboard", nil))
 	if err != nil {
 		t.Fatalf("handleOnboard: %v", err)
 	}
@@ -65,22 +65,22 @@ func TestHandleOnboard_Scoped(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "feat-a",
 	}))
-	srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "Decision for A",
 		"type":    "decision",
 	}))
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "feat-b",
 	}))
-	srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "Decision for B",
 		"type":    "decision",
 	}))
 
-	res, err := srv.handleOnboard(ctx, newReq("devmem_onboard", map[string]interface{}{
+	res, err := srv.handleOnboard(ctx, newReq("memorx_onboard", map[string]interface{}{
 		"feature": "feat-a",
 	}))
 	if err != nil {
@@ -100,7 +100,7 @@ func TestHandleChangelog_Empty(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleChangelog(ctx, newReq("devmem_changelog", nil))
+	res, err := srv.handleChangelog(ctx, newReq("memorx_changelog", nil))
 	if err != nil {
 		t.Fatalf("handleChangelog error: %v", err)
 	}
@@ -115,15 +115,15 @@ func TestHandleChangelog_WithDecisions(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "changelog-test",
 	}))
-	srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "Use Redis for caching",
 		"type":    "decision",
 	}))
 
-	res, err := srv.handleChangelog(ctx, newReq("devmem_changelog", map[string]interface{}{
+	res, err := srv.handleChangelog(ctx, newReq("memorx_changelog", map[string]interface{}{
 		"days": float64(30),
 	}))
 	if err != nil {
@@ -140,15 +140,15 @@ func TestHandleChangelog_SlackFormat(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	_, _ = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+	_, _ = srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{
 		"name": "slack-test",
 	}))
-	srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+	srv.handleRemember(ctx, newReq("memorx_remember", map[string]interface{}{
 		"content": "A slack decision",
 		"type":    "decision",
 	}))
 
-	res, err := srv.handleChangelog(ctx, newReq("devmem_changelog", map[string]interface{}{
+	res, err := srv.handleChangelog(ctx, newReq("memorx_changelog", map[string]interface{}{
 		"format": "slack",
 	}))
 	if err != nil {
@@ -180,7 +180,7 @@ func TestHandleShare_JSONFile(t *testing.T) {
 		t.Fatalf("write export file: %v", err)
 	}
 
-	res, err := srv.handleShare(ctx, newReq("devmem_share", map[string]interface{}{
+	res, err := srv.handleShare(ctx, newReq("memorx_share", map[string]interface{}{
 		"path": exportPath,
 	}))
 	if err != nil {
@@ -222,7 +222,7 @@ func TestHandleShare_MarkdownFile(t *testing.T) {
 		t.Fatalf("write export file: %v", err)
 	}
 
-	res, err := srv.handleShare(ctx, newReq("devmem_share", map[string]interface{}{
+	res, err := srv.handleShare(ctx, newReq("memorx_share", map[string]interface{}{
 		"path": exportPath,
 	}))
 	if err != nil {
@@ -239,7 +239,7 @@ func TestHandleShare_MissingFile(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleShare(ctx, newReq("devmem_share", map[string]interface{}{
+	res, err := srv.handleShare(ctx, newReq("memorx_share", map[string]interface{}{
 		"path": "/nonexistent/file.json",
 	}))
 	if err != nil {
@@ -256,7 +256,7 @@ func TestHandleShare_MissingPath(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()
 
-	res, err := srv.handleShare(ctx, newReq("devmem_share", nil))
+	res, err := srv.handleShare(ctx, newReq("memorx_share", nil))
 	if err != nil {
 		t.Fatalf("handleShare error: %v", err)
 	}

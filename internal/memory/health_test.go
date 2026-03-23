@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/storage"
 )
 
 // newTestStoreWithDB is defined in analytics_test.go

@@ -3,7 +3,7 @@ package plans_test
 import (
 	"testing"
 
-	"github.com/arbaz/devmem/internal/plans"
+	"github.com/arbazkhan971/memorx/internal/plans"
 )
 
 func TestMatchCommitToSteps_FindsMatch(t *testing.T) {

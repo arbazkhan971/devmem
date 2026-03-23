@@ -158,7 +158,7 @@ func TestPrintMarkdown_ContainsHeaders(t *testing.T) {
 	md := r.PrintMarkdown()
 
 	expected := []string{
-		"# devmem Benchmark Report",
+		"# memorX Benchmark Report",
 		"## Overall",
 		"## Ability Breakdown",
 		"## Failures",

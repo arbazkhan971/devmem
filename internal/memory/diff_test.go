@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/storage"
 )
 
 func setupDiffStore(t *testing.T) *Store {

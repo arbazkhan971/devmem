@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arbaz/devmem/internal/memory"
-	"github.com/arbaz/devmem/internal/plans"
-	"github.com/arbaz/devmem/internal/search"
-	"github.com/arbaz/devmem/internal/storage"
+	"github.com/arbazkhan971/memorx/internal/memory"
+	"github.com/arbazkhan971/memorx/internal/plans"
+	"github.com/arbazkhan971/memorx/internal/search"
+	"github.com/arbazkhan971/memorx/internal/storage"
 )
 
 type Scenario struct {
@@ -383,7 +383,7 @@ func formatFeatures(features []memory.Feature) string {
 }
 
 func NewTempEvaluator() (*Evaluator, error) {
-	tmpFile, err := os.CreateTemp("", "devmem-bench-*.db")
+	tmpFile, err := os.CreateTemp("", "memorx-bench-*.db")
 	if err != nil {
 		return nil, fmt.Errorf("create temp db: %w", err)
 	}
