@@ -408,41 +408,46 @@ func (e *Evaluator) resolveFeatureID(params map[string]interface{}) string {
 func formatContext(ctx *memory.Context) string {
 	var b strings.Builder
 	if ctx.Feature != nil {
-		fmt.Fprintf(&b, "Feature: %s (%s)\n", ctx.Feature.Name, ctx.Feature.Status)
+		fmt.Fprintf(&b, "%s [%s]", ctx.Feature.Name, ctx.Feature.Status)
 		if ctx.Feature.Description != "" {
-			fmt.Fprintf(&b, "Description: %s\n", ctx.Feature.Description)
+			fmt.Fprintf(&b, " %s", ctx.Feature.Description)
 		}
+		b.WriteString("\n")
 	}
 	if ctx.Summary != "" {
 		fmt.Fprintf(&b, "Summary: %s\n", ctx.Summary)
 	}
 	if ctx.Plan != nil {
-		fmt.Fprintf(&b, "Plan: %s [%s] (%d/%d steps)\n",
-			ctx.Plan.Title, ctx.Plan.Status, ctx.Plan.CompletedStep, ctx.Plan.TotalSteps)
+		fmt.Fprintf(&b, "Plan: %s %d/%d\n",
+			ctx.Plan.Title, ctx.Plan.CompletedStep, ctx.Plan.TotalSteps)
 	}
 	if len(ctx.ActiveFacts) > 0 {
-		b.WriteString("Facts:\n")
+		b.WriteString("Facts:")
 		for _, f := range ctx.ActiveFacts {
-			fmt.Fprintf(&b, "  - %s %s %s\n", f.Subject, f.Predicate, f.Object)
+			fmt.Fprintf(&b, " %s %s %s;", f.Subject, f.Predicate, f.Object)
 		}
+		b.WriteString("\n")
 	}
 	if len(ctx.RecentNotes) > 0 {
-		b.WriteString("Notes:\n")
+		b.WriteString("Notes:")
 		for _, n := range ctx.RecentNotes {
-			fmt.Fprintf(&b, "  - [%s] %s\n", n.Type, n.Content)
+			fmt.Fprintf(&b, " [%s] %s;", n.Type, n.Content)
 		}
+		b.WriteString("\n")
 	}
 	if len(ctx.RecentCommits) > 0 {
-		b.WriteString("Commits:\n")
+		b.WriteString("Commits:")
 		for _, c := range ctx.RecentCommits {
-			fmt.Fprintf(&b, "  - %s %s\n", c.Hash[:minLen(len(c.Hash), 7)], c.Message)
+			fmt.Fprintf(&b, " %s %s;", c.Hash[:minLen(len(c.Hash), 7)], c.Message)
 		}
+		b.WriteString("\n")
 	}
 	if len(ctx.SessionHistory) > 0 {
-		b.WriteString("Sessions:\n")
+		b.WriteString("Sessions:")
 		for _, s := range ctx.SessionHistory {
-			fmt.Fprintf(&b, "  - %s (%s)\n", s.Tool, s.StartedAt)
+			fmt.Fprintf(&b, " %s %s;", s.Tool, s.StartedAt)
 		}
+		b.WriteString("\n")
 	}
 	return b.String()
 }

@@ -10,49 +10,43 @@ import (
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 )
 
-// formatBriefing generates a concise "welcome back" briefing for stderr output
-// and the devmem_briefing tool. It summarizes the active feature, plan progress,
-// last session info, and the most recent note.
+// formatBriefing generates a compact single-line "welcome back" briefing.
+// All info on one line to minimize token usage across sessions.
 func formatBriefing(ctx *memory.Context, feature *memory.Feature) string {
 	if feature == nil {
 		return "devmem: No active feature. Use devmem_start_feature to begin."
 	}
 
-	var lines []string
+	var parts []string
 
-	// Line 1: Active feature + branch
-	featureLine := fmt.Sprintf("devmem: Welcome back! Active feature: %s", feature.Name)
+	// Feature name + branch
 	if feature.Branch != "" {
-		featureLine += fmt.Sprintf(" (branch: %s)", feature.Branch)
+		parts = append(parts, fmt.Sprintf("%s [%s]", feature.Name, feature.Branch))
+	} else {
+		parts = append(parts, feature.Name)
 	}
-	lines = append(lines, featureLine)
 
-	// Line 2: Plan progress (only if there's a plan)
+	// Plan progress
 	if ctx.Plan != nil {
-		lines = append(lines, fmt.Sprintf("devmem: Plan: %s (%d/%d steps done)",
-			ctx.Plan.Title, ctx.Plan.CompletedStep, ctx.Plan.TotalSteps))
+		parts = append(parts, fmt.Sprintf("plan:%s %d/%d", ctx.Plan.Title, ctx.Plan.CompletedStep, ctx.Plan.TotalSteps))
 	}
 
-	// Line 3: Last session info
+	// Last session
 	if len(ctx.SessionHistory) > 0 {
 		lastSession := ctx.SessionHistory[0]
-		agoStr := formatTimeAgo(lastSession.StartedAt)
-		lines = append(lines, fmt.Sprintf("devmem: Last session: %s via %s", agoStr, lastSession.Tool))
+		parts = append(parts, fmt.Sprintf("last:%s", formatTimeAgo(lastSession.StartedAt)))
 	}
 
-	// Line 4: Most recent note (truncated)
+	// Most recent note (truncated)
 	if len(ctx.RecentNotes) > 0 {
 		content := strings.ReplaceAll(ctx.RecentNotes[0].Content, "\n", " ")
-		if len(content) > 80 {
-			content = content[:80] + "..."
+		if len(content) > 60 {
+			content = content[:60] + "..."
 		}
-		lines = append(lines, fmt.Sprintf("devmem: Recent: \"%s\"", content))
+		parts = append(parts, fmt.Sprintf("\"%s\"", content))
 	}
 
-	// Tip line
-	lines = append(lines, "devmem: Tip: Say \"where did I leave off?\" for full context")
-
-	return strings.Join(lines, "\n")
+	return "devmem: " + strings.Join(parts, " | ")
 }
 
 // formatTimeAgo converts a datetime string to a human-readable "X ago" format.
