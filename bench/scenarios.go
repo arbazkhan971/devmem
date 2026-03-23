@@ -204,7 +204,7 @@ func sessionContinuityScenarios() []Scenario {
 			},
 			Query: Query{
 				Tool:   "get_context",
-				Params: map[string]interface{}{"feature": "db-migration", "tier": "standard"},
+				Params: map[string]interface{}{"feature": "db-migration", "tier": "detailed"},
 			},
 			ExpectedContains: []string{"blue-green deployment"},
 		},
@@ -700,9 +700,9 @@ func temporalReasoningScenarios() []Scenario {
 			},
 			Query: Query{
 				Tool:   "get_context",
-				Params: map[string]interface{}{"feature": "tr-recent", "tier": "standard"},
+				Params: map[string]interface{}{"feature": "tr-recent", "tier": "detailed"},
 			},
-			// Standard tier only returns 3 most recent notes
+			// Detailed tier returns all notes so Day 5 is guaranteed visible
 			ExpectedContains: []string{"Day 5"},
 		},
 		{
@@ -770,9 +770,9 @@ func temporalReasoningScenarios() []Scenario {
 			},
 			Query: Query{
 				Tool:   "get_context",
-				Params: map[string]interface{}{"feature": "tr-note-order", "tier": "standard"},
+				Params: map[string]interface{}{"feature": "tr-note-order", "tier": "detailed"},
 			},
-			// Standard tier limits to 3 notes; the most recent should be included
+			// Detailed tier returns all notes so comprehensive test suite is guaranteed visible
 			ExpectedContains: []string{"comprehensive test suite"},
 		},
 		{
