@@ -187,6 +187,13 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 			),
 			Handler: s.handleGenerateRules,
 		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_project_map",
+				mcplib.WithDescription("Scan and cache the project structure. Shows languages, key files, directory layout. Cached between sessions so the AI doesn't re-discover the codebase."),
+				mcplib.WithBoolean("rescan", mcplib.Description("Force a re-scan of the project structure")),
+			),
+			Handler: s.handleProjectMap,
+		},
 	)
 }
 

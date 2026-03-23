@@ -96,7 +96,7 @@ func TestAllToolsExist(t *testing.T) {
 		{"devmem_sync"}, {"devmem_remember"}, {"devmem_search"},
 		{"devmem_save_plan"}, {"devmem_import_session"}, {"devmem_end_session"},
 		{"devmem_export"}, {"devmem_health"}, {"devmem_forget"},
-		{"devmem_analytics"}, {"devmem_generate_rules"},
+		{"devmem_analytics"}, {"devmem_generate_rules"}, {"devmem_project_map"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, ok := toolMap[tc.name]; !ok {
@@ -1078,5 +1078,58 @@ func TestHandlerErrors_RequiresActiveFeature(t *testing.T) {
 				t.Errorf("expected error about no active feature, got: %s", text)
 			}
 		})
+	}
+}
+
+func TestHandleProjectMap_ScanAndCache(t *testing.T) {
+	srv, dir := setupTestServer(t)
+	ctx := context.Background()
+
+	// Create some source files so the scan finds something.
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test"), 0644)
+	os.MkdirAll(filepath.Join(dir, "internal"), 0755)
+	os.WriteFile(filepath.Join(dir, "internal", "handler.go"), []byte("package internal"), 0644)
+
+	// Add the files to git so git ls-files finds them.
+	addCmd := exec.Command("git", "add", ".")
+	addCmd.Dir = dir
+	if out, err := addCmd.CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, out)
+	}
+
+	// First call — should scan.
+	res, err := srv.handleProjectMap(ctx, newReq("devmem_project_map", nil))
+	if err != nil {
+		t.Fatalf("handleProjectMap error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "Project Map") {
+		t.Errorf("project map should contain title, got:\n%s", text)
+	}
+	if !strings.Contains(text, "go") {
+		t.Errorf("project map should mention go language, got:\n%s", text)
+	}
+
+	// Second call — should use cache (no rescan).
+	res2, err := srv.handleProjectMap(ctx, newReq("devmem_project_map", nil))
+	if err != nil {
+		t.Fatalf("handleProjectMap cached error: %v", err)
+	}
+	text2 := resultText(t, res2)
+	if !strings.Contains(text2, "Project Map") {
+		t.Errorf("cached project map should still return data, got:\n%s", text2)
+	}
+
+	// Third call with rescan=true — should rescan.
+	res3, err := srv.handleProjectMap(ctx, newReq("devmem_project_map", map[string]interface{}{
+		"rescan": true,
+	}))
+	if err != nil {
+		t.Fatalf("handleProjectMap rescan error: %v", err)
+	}
+	text3 := resultText(t, res3)
+	if !strings.Contains(text3, "Project Map") {
+		t.Errorf("rescanned project map should return data, got:\n%s", text3)
 	}
 }

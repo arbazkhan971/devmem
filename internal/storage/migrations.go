@@ -23,6 +23,11 @@ func Migrate(db *DB) error {
 			return fmt.Errorf("apply v2 migration: %w", err)
 		}
 	}
+	if currentVersion < 3 {
+		if err := applyV3(w); err != nil {
+			return fmt.Errorf("apply v3 migration: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -55,6 +60,24 @@ func applyV2(w *sql.DB) error {
 		return fmt.Errorf("add summary column: %w", err)
 	}
 	if _, err := tx.Exec("INSERT OR IGNORE INTO schema_version (version) VALUES (2)"); err != nil {
+		return fmt.Errorf("record version: %w", err)
+	}
+	return tx.Commit()
+}
+
+func applyV3(w *sql.DB) error {
+	tx, err := w.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`CREATE TABLE IF NOT EXISTS project_map (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		data TEXT NOT NULL DEFAULT '{}',
+		scanned_at TEXT NOT NULL DEFAULT (datetime('now')))`); err != nil {
+		return fmt.Errorf("create project_map table: %w", err)
+	}
+	if _, err := tx.Exec("INSERT OR IGNORE INTO schema_version (version) VALUES (3)"); err != nil {
 		return fmt.Errorf("record version: %w", err)
 	}
 	return tx.Commit()
