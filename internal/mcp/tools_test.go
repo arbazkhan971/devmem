@@ -530,6 +530,194 @@ func TestHandleGetContext_NoActiveFeature(t *testing.T) {
 	}
 }
 
+func TestHandleExport_JSONFormat(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Create a feature with some data.
+	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name":        "export-json-test",
+		"description": "testing JSON export",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature error: %v", err)
+	}
+	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+		"content": "json export note content",
+		"type":    "decision",
+	}))
+	if err != nil {
+		t.Fatalf("handleRemember error: %v", err)
+	}
+
+	res, err := srv.handleExport(ctx, newReq("devmem_export", map[string]interface{}{
+		"feature_name": "export-json-test",
+		"format":       "json",
+	}))
+	if err != nil {
+		t.Fatalf("handleExport error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, `"feature": "export-json-test"`) {
+		t.Errorf("JSON export should contain feature name, got:\n%s", text)
+	}
+	if !strings.Contains(text, `"status": "active"`) {
+		t.Errorf("JSON export should contain status, got:\n%s", text)
+	}
+	if !strings.Contains(text, `"description": "testing JSON export"`) {
+		t.Errorf("JSON export should contain description, got:\n%s", text)
+	}
+	// Should be valid JSON-ish with curly braces
+	if !strings.HasPrefix(strings.TrimSpace(text), "{") || !strings.HasSuffix(strings.TrimSpace(text), "}") {
+		t.Errorf("JSON export should be wrapped in curly braces, got:\n%s", text)
+	}
+}
+
+func TestHandleRemember_PlanAutoPromotion(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Start a feature first.
+	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name": "plan-auto-promote-test",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature error: %v", err)
+	}
+
+	// Content with 3+ numbered steps and a plan keyword triggers auto-promotion.
+	planContent := `Implementation plan for the feature:
+1. Set up database schema
+2. Create API endpoints
+3. Write integration tests
+4. Deploy to staging`
+
+	res, err := srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+		"content": planContent,
+		"type":    "note",
+	}))
+	if err != nil {
+		t.Fatalf("handleRemember error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "Remembered") {
+		t.Errorf("remember result should contain 'Remembered', got:\n%s", text)
+	}
+	if !strings.Contains(text, "Auto-promoted to plan") {
+		t.Errorf("plan-like content should trigger auto-promotion, got:\n%s", text)
+	}
+	if !strings.Contains(text, "4 steps") {
+		t.Errorf("auto-promoted plan should have 4 steps, got:\n%s", text)
+	}
+}
+
+func TestHandleStartFeature_ResumeExisting(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Create a feature.
+	res1, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name":        "resume-test",
+		"description": "first feature",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature error: %v", err)
+	}
+	text1 := resultText(t, res1)
+	if !strings.Contains(text1, "created") {
+		t.Errorf("first start should say 'created', got:\n%s", text1)
+	}
+
+	// Start a second feature (pausing the first).
+	_, err = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name": "other-feature",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature other error: %v", err)
+	}
+
+	// Resume the first feature — should say "resumed", not "created".
+	res2, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name": "resume-test",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature resume error: %v", err)
+	}
+	text2 := resultText(t, res2)
+	if !strings.Contains(text2, "resumed") {
+		t.Errorf("second start of existing feature should say 'resumed', got:\n%s", text2)
+	}
+	if !strings.Contains(text2, "resume-test") {
+		t.Errorf("resumed feature should contain feature name, got:\n%s", text2)
+	}
+}
+
+func TestHandleSearch_AllFeaturesScope(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Create feature A and remember something.
+	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name": "search-all-feat-a",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature A error: %v", err)
+	}
+	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+		"content": "The payment gateway uses Stripe for all transactions",
+	}))
+	if err != nil {
+		t.Fatalf("handleRemember error: %v", err)
+	}
+
+	// Create feature B (which pauses A).
+	_, err = srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name": "search-all-feat-b",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature B error: %v", err)
+	}
+
+	// Search across all features should find the note from feature A.
+	res, err := srv.handleSearch(ctx, newReq("devmem_search", map[string]interface{}{
+		"query": "payment Stripe",
+		"scope": "all_features",
+	}))
+	if err != nil {
+		t.Fatalf("handleSearch error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "Search results") {
+		t.Errorf("all_features search should find results from other features, got:\n%s", text)
+	}
+}
+
+func TestHandleImportSession_EmptyFeatureName(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleImportSession(ctx, newReq("devmem_import_session", map[string]interface{}{
+		"feature_name": "",
+		"description":  "should fail",
+	}))
+	if err != nil {
+		t.Fatalf("handleImportSession error: %v", err)
+	}
+
+	// Empty feature_name should return an error result.
+	if res.IsError {
+		// Good — it's an explicit MCP error.
+		return
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "required") {
+		t.Errorf("empty feature_name should return error about required param, got:\n%s", text)
+	}
+}
+
 func TestHandleSwitchFeature_CreatesNewSession(t *testing.T) {
 	srv, _ := setupTestServer(t)
 	ctx := context.Background()

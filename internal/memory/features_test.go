@@ -221,6 +221,62 @@ func TestListFeatures_EachStatusFilter(t *testing.T) {
 	}
 }
 
+func TestStartFeature_AutoPauseVerifiesActiveFeature(t *testing.T) {
+	store := newTestStore(t)
+
+	// Start three features in sequence.
+	store.StartFeature("feat-1", "First")
+	store.StartFeature("feat-2", "Second")
+	store.StartFeature("feat-3", "Third")
+
+	// Only feat-3 should be active; feat-1 and feat-2 should be paused.
+	active, err := store.GetActiveFeature()
+	if err != nil {
+		t.Fatalf("GetActiveFeature: %v", err)
+	}
+	if active.Name != "feat-3" {
+		t.Errorf("expected active feature 'feat-3', got %q", active.Name)
+	}
+
+	f1, _ := store.GetFeature("feat-1")
+	if f1.Status != "paused" {
+		t.Errorf("expected feat-1 status 'paused', got %q", f1.Status)
+	}
+	f2, _ := store.GetFeature("feat-2")
+	if f2.Status != "paused" {
+		t.Errorf("expected feat-2 status 'paused', got %q", f2.Status)
+	}
+}
+
+func TestGetFeature_NonExistentReturnsError(t *testing.T) {
+	store := newTestStore(t)
+
+	// Create one feature to ensure DB is not empty.
+	store.CreateFeature("existing-feat", "Exists")
+
+	_, err := store.GetFeature("totally-missing")
+	if err == nil {
+		t.Fatal("expected error for non-existent feature, got nil")
+	}
+	if got := err.Error(); got == "" {
+		t.Error("expected non-empty error message")
+	}
+}
+
+func TestCreateFeature_DuplicateNameReturnsError(t *testing.T) {
+	store := newTestStore(t)
+
+	_, err := store.CreateFeature("dup-test", "Original")
+	if err != nil {
+		t.Fatalf("first CreateFeature: %v", err)
+	}
+
+	_, err = store.CreateFeature("dup-test", "Duplicate with different description")
+	if err == nil {
+		t.Fatal("expected error for duplicate feature name, got nil")
+	}
+}
+
 func TestUpdateFeatureStatus(t *testing.T) {
 	store := newTestStore(t)
 

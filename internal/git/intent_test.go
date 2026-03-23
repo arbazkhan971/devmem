@@ -319,6 +319,40 @@ func TestClassifyIntent_JSTestFiles(t *testing.T) {
 	}
 }
 
+func TestClassifyIntent_EmptyMessage(t *testing.T) {
+	intentType, confidence := git.ClassifyIntent("", nil)
+	if intentType != "unknown" {
+		t.Errorf("ClassifyIntent(\"\") type = %s, want unknown", intentType)
+	}
+	if confidence != 0.0 {
+		t.Errorf("ClassifyIntent(\"\") confidence = %f, want 0.0", confidence)
+	}
+}
+
+func TestClassifyIntent_WhitespaceOnly(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+	}{
+		{"single space", " "},
+		{"multiple spaces", "   "},
+		{"tab", "\t"},
+		{"newline", "\n"},
+		{"mixed whitespace", " \t\n  \t"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			intentType, confidence := git.ClassifyIntent(tc.message, nil)
+			if intentType != "unknown" {
+				t.Errorf("ClassifyIntent(%q) type = %s, want unknown", tc.message, intentType)
+			}
+			if confidence != 0.0 {
+				t.Errorf("ClassifyIntent(%q) confidence = %f, want 0.0", tc.message, confidence)
+			}
+		})
+	}
+}
+
 func TestClassifyIntent_MultipleKeywords_FirstMatchWins(t *testing.T) {
 	// The tokenizer splits the message into words and iterates over them in order.
 	// The first matching keyword determines the intent type.
