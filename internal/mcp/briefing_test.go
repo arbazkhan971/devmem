@@ -37,12 +37,10 @@ func TestFormatBriefing_ActiveFeatureWithPlan(t *testing.T) {
 		desc, want string
 	}{
 		{"feature name", "auth-v2"},
-		{"branch", "branch: feature/auth-v2"},
+		{"branch in brackets", "[feature/auth-v2]"},
 		{"plan title", "Auth Migration"},
-		{"plan progress", "4/7 steps done"},
-		{"tool name", "claude-code"},
+		{"plan progress", "4/7"},
 		{"recent note", "Token refresh working"},
-		{"tip", "where did I leave off"},
 	}
 	for _, c := range checks {
 		if !strings.Contains(briefing, c.want) {
@@ -102,11 +100,11 @@ func TestFormatBriefing_IncludesLastSession(t *testing.T) {
 
 	briefing := formatBriefing(ctx, feature)
 
-	if !strings.Contains(briefing, "Last session:") {
+	if !strings.Contains(briefing, "last:") {
 		t.Errorf("briefing should include last session info, got:\n%s", briefing)
 	}
-	if !strings.Contains(briefing, "via cursor") {
-		t.Errorf("briefing should include session tool name, got:\n%s", briefing)
+	if !strings.Contains(briefing, "ago") {
+		t.Errorf("briefing should include relative time, got:\n%s", briefing)
 	}
 }
 
@@ -151,8 +149,8 @@ func TestHandleBriefing_WithActiveFeature(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	if !strings.Contains(text, "Welcome back") {
-		t.Errorf("briefing should say 'Welcome back', got:\n%s", text)
+	if !strings.Contains(text, "devmem:") {
+		t.Errorf("briefing should start with 'devmem:', got:\n%s", text)
 	}
 	if !strings.Contains(text, "briefing-test") {
 		t.Errorf("briefing should contain feature name, got:\n%s", text)

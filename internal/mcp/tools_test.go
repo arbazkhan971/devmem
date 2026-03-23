@@ -114,8 +114,9 @@ func TestHandleStartFeature(t *testing.T) {
 	if !strings.Contains(text, "created") {
 		t.Errorf("start feature result should say 'created' for new feature, got:\n%s", text)
 	}
-	if !strings.Contains(text, "Context:") {
-		t.Errorf("start feature result should contain context section, got:\n%s", text)
+	// Start feature response includes compact context after the separator
+	if !strings.Contains(text, "---") {
+		t.Errorf("start feature result should contain context separator, got:\n%s", text)
 	}
 }
 
@@ -506,9 +507,9 @@ func TestHandleGetContext_DetailedTier(t *testing.T) {
 	if !strings.Contains(text, "context-detailed-test") {
 		t.Errorf("detailed context should contain feature name, got:\n%s", text)
 	}
-	// Detailed tier includes session history
-	if !strings.Contains(text, "Session History") {
-		t.Errorf("detailed context should include session history, got:\n%s", text)
+	// Detailed tier includes session info
+	if !strings.Contains(text, "Sessions:") {
+		t.Errorf("detailed context should include session info, got:\n%s", text)
 	}
 }
 
@@ -929,8 +930,8 @@ func TestHandleEndSession_SummaryAppearsInContext(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	if !strings.Contains(text, "Last Session") {
-		t.Errorf("context should contain 'Last Session' section, got:\n%s", text)
+	if !strings.Contains(text, "LastSession:") {
+		t.Errorf("context should contain 'LastSession:' section, got:\n%s", text)
 	}
 	if !strings.Contains(text, "database schema and migration") {
 		t.Errorf("context should contain the session summary text, got:\n%s", text)
