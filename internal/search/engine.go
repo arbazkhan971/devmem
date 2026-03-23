@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/arbaz/devmem/internal/storage"
 )
@@ -19,7 +20,7 @@ type SearchResult struct {
 	CreatedAt   string
 }
 
-// Engine orchestrates the 3-layer search: FTS5 BM25 -> trigram -> (fuzzy placeholder).
+// Engine orchestrates the 3-layer search: FTS5 BM25 -> trigram.
 type Engine struct {
 	db *storage.DB
 }
@@ -27,6 +28,15 @@ type Engine struct {
 // NewEngine creates a new search engine backed by the given database.
 func NewEngine(db *storage.DB) *Engine {
 	return &Engine{db: db}
+}
+
+// LinkedMemory represents a memory item discovered via link traversal.
+type LinkedMemory struct {
+	ID           string
+	Type         string
+	Relationship string
+	Strength     float64
+	Depth        int
 }
 
 // ftsTable describes how to search a single FTS5 (or trigram) virtual table.
@@ -82,6 +92,16 @@ var ftsTableMap = func() map[string]*ftsTable {
 	return m
 }()
 
+// typeWeights maps note/commit types to relevance multipliers.
+var typeWeights = map[string]float64{
+	"decision":  2.0,
+	"blocker":   1.5,
+	"progress":  1.0,
+	"feature":   1.2,
+	"note":      0.5,
+	"next_step": 1.0,
+}
+
 // Search executes a multi-layer search across memory types.
 //
 // query: the search text
@@ -118,12 +138,7 @@ func (e *Engine) Search(query, scope string, types []string, featureID string, l
 	if err != nil {
 		return nil, fmt.Errorf("trigram search: %w", err)
 	}
-	if len(results) > 0 {
-		return results, nil
-	}
-
-	// Layer 3: Fuzzy (V1 placeholder — not yet implemented)
-	return nil, nil
+	return results, nil
 }
 
 // sanitizeFTSQuery wraps each token in double quotes so that special characters
@@ -240,4 +255,90 @@ func sortByRelevance(results []SearchResult) {
 			results[j], results[j-1] = results[j-1], results[j]
 		}
 	}
+}
+
+// TraverseLinks follows memory_links from a starting memory, using a recursive
+// CTE to discover connected items up to maxDepth hops away.
+func (e *Engine) TraverseLinks(memoryID, memoryType string, maxDepth int) ([]LinkedMemory, error) {
+	if maxDepth < 1 {
+		maxDepth = 1
+	}
+
+	const query = `
+WITH RECURSIVE connected AS (
+    SELECT target_id, target_type, relationship, strength, 1 as depth
+    FROM memory_links
+    WHERE source_id = ? AND source_type = ?
+    UNION ALL
+    SELECT ml.target_id, ml.target_type, ml.relationship, ml.strength, c.depth + 1
+    FROM memory_links ml
+    JOIN connected c ON ml.source_id = c.target_id AND ml.source_type = c.target_type
+    WHERE c.depth < ?
+)
+SELECT DISTINCT target_id, target_type, relationship, strength, depth
+FROM connected
+ORDER BY depth, strength DESC
+`
+
+	rows, err := e.db.Reader().Query(query, memoryID, memoryType, maxDepth)
+	if err != nil {
+		return nil, fmt.Errorf("traverse links: %w", err)
+	}
+	defer rows.Close()
+
+	var results []LinkedMemory
+	for rows.Next() {
+		var lm LinkedMemory
+		if err := rows.Scan(&lm.ID, &lm.Type, &lm.Relationship, &lm.Strength, &lm.Depth); err != nil {
+			return nil, fmt.Errorf("scan linked memory: %w", err)
+		}
+		results = append(results, lm)
+	}
+	return results, rows.Err()
+}
+
+// Score computes a composite relevance score for a search result.
+//
+// Formula: score = bm25Score * temporalDecay * typeWeight * linkBoost
+//
+// bm25Score should be the absolute (positive) BM25 value.
+// createdAt is an RFC3339/datetime string.
+// noteType is the type column value (e.g. "decision", "blocker", "progress", "note").
+// linkCount is the number of memory_links referencing this item.
+func Score(bm25Score float64, createdAt string, noteType string, linkCount int) float64 {
+	decay := temporalDecay(createdAt)
+	weight := typeWeight(noteType)
+	boost := linkBoost(linkCount)
+	return bm25Score * decay * weight * boost
+}
+
+// temporalDecay returns an exponential decay factor with a 14-day half-life.
+// Items created now return ~1.0; items 14 days old return ~0.5.
+func temporalDecay(createdAt string) float64 {
+	t, err := time.Parse("2006-01-02 15:04:05", createdAt)
+	if err != nil {
+		// Try RFC3339 as fallback
+		t, err = time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			return 1.0
+		}
+	}
+	days := time.Since(t).Hours() / 24.0
+	if days < 0 {
+		days = 0
+	}
+	return math.Exp(-0.693 * days / 14.0)
+}
+
+// typeWeight returns a relevance multiplier based on the memory type.
+func typeWeight(noteType string) float64 {
+	if w, ok := typeWeights[noteType]; ok {
+		return w
+	}
+	return 1.0
+}
+
+// linkBoost returns a boost factor based on how connected an item is.
+func linkBoost(linkCount int) float64 {
+	return 1.0 + float64(linkCount)*0.1
 }

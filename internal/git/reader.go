@@ -106,8 +106,3 @@ func parseAction(status string) string {
 		return "modified"
 	}
 }
-
-// GetCurrentBranch returns the current git branch name.
-func GetCurrentBranch(gitRoot string) (string, error) {
-	return CurrentBranch(gitRoot)
-}

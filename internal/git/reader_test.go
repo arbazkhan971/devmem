@@ -247,12 +247,12 @@ func TestReadCommits_EmptyRepo(t *testing.T) {
 	}
 }
 
-func TestGetCurrentBranch(t *testing.T) {
+func TestCurrentBranch(t *testing.T) {
 	dir := initTestRepoWithCommits(t)
 
-	branch, err := git.GetCurrentBranch(dir)
+	branch, err := git.CurrentBranch(dir)
 	if err != nil {
-		t.Fatalf("GetCurrentBranch: %v", err)
+		t.Fatalf("CurrentBranch: %v", err)
 	}
 
 	// Default branch could be "main" or "master" depending on git config
@@ -449,7 +449,7 @@ func TestReadCommits_CorrectFilesChangedPerCommit(t *testing.T) {
 	}
 }
 
-func TestGetCurrentBranch_AfterCheckout(t *testing.T) {
+func TestCurrentBranch_AfterCheckout(t *testing.T) {
 	dir := initTestRepoWithCommits(t)
 
 	env := append(os.Environ(),
@@ -474,9 +474,9 @@ func TestGetCurrentBranch_AfterCheckout(t *testing.T) {
 	// Create and switch to a new branch
 	run("git", "checkout", "-b", "my-feature-branch")
 
-	branch, err := git.GetCurrentBranch(dir)
+	branch, err := git.CurrentBranch(dir)
 	if err != nil {
-		t.Fatalf("GetCurrentBranch: %v", err)
+		t.Fatalf("CurrentBranch: %v", err)
 	}
 
 	if branch != "my-feature-branch" {
@@ -486,9 +486,9 @@ func TestGetCurrentBranch_AfterCheckout(t *testing.T) {
 	// Switch to another branch
 	run("git", "checkout", "-b", "another-branch")
 
-	branch, err = git.GetCurrentBranch(dir)
+	branch, err = git.CurrentBranch(dir)
 	if err != nil {
-		t.Fatalf("GetCurrentBranch after second checkout: %v", err)
+		t.Fatalf("CurrentBranch after second checkout: %v", err)
 	}
 
 	if branch != "another-branch" {
