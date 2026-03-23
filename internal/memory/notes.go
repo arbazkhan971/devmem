@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Note represents a note attached to a feature.
 type Note struct {
 	ID        string
 	FeatureID string
@@ -19,7 +18,14 @@ type Note struct {
 	UpdatedAt string
 }
 
-// CreateNote creates a new note and syncs to FTS and trigram indexes.
+const noteCols = `id, feature_id, COALESCE(session_id, ''), content, type, created_at, updated_at`
+
+func scanNote(sc interface{ Scan(...any) error }) (Note, error) {
+	var n Note
+	err := sc.Scan(&n.ID, &n.FeatureID, &n.SessionID, &n.Content, &n.Type, &n.CreatedAt, &n.UpdatedAt)
+	return n, err
+}
+
 func (s *Store) CreateNote(featureID, sessionID, content, noteType string) (*Note, error) {
 	if noteType == "" {
 		noteType = "note"
@@ -28,104 +34,68 @@ func (s *Store) CreateNote(featureID, sessionID, content, noteType string) (*Not
 	now := time.Now().UTC().Format(time.DateTime)
 	w := s.db.Writer()
 
-	_, err := w.Exec(
+	if _, err := w.Exec(
 		`INSERT INTO notes (id, feature_id, session_id, content, type, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		id, featureID, nullIfEmpty(sessionID), content, noteType, now, now,
-	)
-	if err != nil {
+	); err != nil {
 		return nil, fmt.Errorf("create note: %w", err)
 	}
 
-	// Sync to FTS: get the rowid of the newly inserted note
 	var rowID int64
-	err = w.QueryRow(`SELECT rowid FROM notes WHERE id = ?`, id).Scan(&rowID)
-	if err != nil {
+	if err := w.QueryRow(`SELECT rowid FROM notes WHERE id = ?`, id).Scan(&rowID); err != nil {
 		return nil, fmt.Errorf("get note rowid: %w", err)
 	}
-
-	// Sync to notes_fts
-	_, err = w.Exec(
-		`INSERT INTO notes_fts(rowid, content, type) VALUES (?, ?, ?)`,
-		rowID, content, noteType,
-	)
-	if err != nil {
+	if _, err := w.Exec(`INSERT INTO notes_fts(rowid, content, type) VALUES (?, ?, ?)`, rowID, content, noteType); err != nil {
 		return nil, fmt.Errorf("sync note to fts: %w", err)
 	}
-
-	// Sync to notes_trigram
-	_, err = w.Exec(
-		`INSERT INTO notes_trigram(rowid, content) VALUES (?, ?)`,
-		rowID, content,
-	)
-	if err != nil {
+	if _, err := w.Exec(`INSERT INTO notes_trigram(rowid, content) VALUES (?, ?)`, rowID, content); err != nil {
 		return nil, fmt.Errorf("sync note to trigram: %w", err)
 	}
 
 	return &Note{
-		ID:        id,
-		FeatureID: featureID,
-		SessionID: sessionID,
-		Content:   content,
-		Type:      noteType,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID: id, FeatureID: featureID, SessionID: sessionID,
+		Content: content, Type: noteType, CreatedAt: now, UpdatedAt: now,
 	}, nil
 }
 
-// ListNotes returns notes for a feature, optionally filtered by type.
-// If noteType is empty, all notes are returned.
-func (s *Store) ListNotes(featureID string, noteType string, limit int) ([]Note, error) {
+func (s *Store) ListNotes(featureID, noteType string, limit int) ([]Note, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-
-	var rows *sql.Rows
-	var err error
-
-	if noteType == "" {
-		rows, err = s.db.Reader().Query(
-			`SELECT id, feature_id, COALESCE(session_id, ''), content, type, created_at, updated_at
-			 FROM notes WHERE feature_id = ?
-			 ORDER BY created_at DESC LIMIT ?`,
-			featureID, limit,
-		)
-	} else {
-		rows, err = s.db.Reader().Query(
-			`SELECT id, feature_id, COALESCE(session_id, ''), content, type, created_at, updated_at
-			 FROM notes WHERE feature_id = ? AND type = ?
-			 ORDER BY created_at DESC LIMIT ?`,
-			featureID, noteType, limit,
-		)
+	q := `SELECT ` + noteCols + ` FROM notes WHERE feature_id = ?`
+	args := []any{featureID}
+	if noteType != "" {
+		q += ` AND type = ?`
+		args = append(args, noteType)
 	}
+	q += ` ORDER BY created_at DESC LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := s.db.Reader().Query(q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list notes: %w", err)
 	}
 	defer rows.Close()
-
-	var notes []Note
+	var out []Note
 	for rows.Next() {
-		var n Note
-		if err := rows.Scan(&n.ID, &n.FeatureID, &n.SessionID, &n.Content, &n.Type, &n.CreatedAt, &n.UpdatedAt); err != nil {
+		n, err := scanNote(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan note: %w", err)
 		}
-		notes = append(notes, n)
+		out = append(out, n)
 	}
-	return notes, rows.Err()
+	return out, rows.Err()
 }
 
-// GetNote retrieves a note by ID.
 func (s *Store) GetNote(noteID string) (*Note, error) {
-	n := &Note{}
-	err := s.db.Reader().QueryRow(
-		`SELECT id, feature_id, COALESCE(session_id, ''), content, type, created_at, updated_at
-		 FROM notes WHERE id = ?`, noteID,
-	).Scan(&n.ID, &n.FeatureID, &n.SessionID, &n.Content, &n.Type, &n.CreatedAt, &n.UpdatedAt)
+	row := s.db.Reader().QueryRow(`SELECT `+noteCols+` FROM notes WHERE id = ?`, noteID)
+	n, err := scanNote(row)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("note %q not found", noteID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get note: %w", err)
 	}
-	return n, nil
+	return &n, nil
 }
