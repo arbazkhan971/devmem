@@ -56,6 +56,66 @@ devmem auto-detects your project from the git root. No configuration needed.
 | `devmem_remember` | Save a note, decision, blocker, or next step |
 | `devmem_search` | Search across all memory types |
 | `devmem_save_plan` | Store a plan with trackable steps |
+| `devmem_import_session` | Import context from current conversation into memory |
+| `devmem_export` | Export a feature's memory as markdown or JSON |
+
+### Importing Existing Sessions
+
+Already been working on a project without devmem? No problem. Just tell your AI assistant:
+
+> "Import everything from this session into devmem"
+
+The AI will call `devmem_import_session` with all the decisions, progress, blockers, facts, and plans from your current conversation. This works in **any MCP-compatible tool** — Claude Code, Cursor, Codex, Windsurf.
+
+**What gets imported:**
+- Decisions ("we chose better-auth over next-auth")
+- Progress notes ("webhook handler done, need tests")
+- Blockers ("token refresh breaks on Safari")
+- Next steps ("write integration tests for billing")
+- Facts ("auth uses better-auth", "DB is PostgreSQL")
+- Plans with step-level status
+
+**Example — bootstrap from an existing Claude Code session:**
+
+```
+You: "I've been working on auth-v2 migration. Import what we've
+     discussed into devmem so future sessions have this context."
+
+Claude: calls devmem_import_session with:
+  feature_name: "auth-v2"
+  description: "Migrating from custom JWT to better-auth"
+  decisions: [
+    "Chose better-auth over next-auth for compliance",
+    "Using opaque tokens instead of JWT"
+  ]
+  progress_notes: [
+    "Middleware extracted from monolith",
+    "Token refresh rotation implemented"
+  ]
+  facts: [
+    { subject: "auth", predicate: "uses", object: "better-auth v2" },
+    { subject: "tokens", predicate: "format", object: "opaque" }
+  ]
+  plan_steps: [
+    { title: "Extract auth middleware", status: "completed" },
+    { title: "Setup better-auth", status: "completed" },
+    { title: "Add refresh rotation", status: "completed" },
+    { title: "Update protected routes", status: "pending" },
+    { title: "Write integration tests", status: "pending" }
+  ]
+  plan_title: "Auth V2 Migration Plan"
+
+Result: 12 items imported, 5 links created
+        Memory bootstrapped — future sessions have full context.
+```
+
+**Exporting for sharing or backup:**
+
+```
+You: "Export the auth-v2 feature memory as markdown"
+Claude: calls devmem_export → returns full markdown with decisions,
+        facts, commits, plan progress, session history
+```
 
 ### Example Flow
 

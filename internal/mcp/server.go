@@ -180,6 +180,55 @@ func (s *DevMemServer) registerTools(mcpServer *server.MCPServer) {
 		),
 		s.handleSavePlan,
 	)
+
+	mcpServer.AddTool(
+		mcplib.NewTool("devmem_import_session",
+			mcplib.WithDescription("Import context from the current conversation into devmem. Use this to capture what you know about the project, decisions made, current progress, and plans — especially at the start of using devmem to bootstrap memory from an existing session. The LLM should call this with a structured dump of everything relevant from the current conversation."),
+			mcplib.WithString("feature_name",
+				mcplib.Description("Feature name to import into (creates if doesn't exist)"),
+				mcplib.Required(),
+			),
+			mcplib.WithString("description",
+				mcplib.Description("Feature description"),
+			),
+			mcplib.WithArray("decisions",
+				mcplib.Description("Key decisions made (array of strings)"),
+			),
+			mcplib.WithArray("progress_notes",
+				mcplib.Description("Progress updates (array of strings)"),
+			),
+			mcplib.WithArray("blockers",
+				mcplib.Description("Current blockers (array of strings)"),
+			),
+			mcplib.WithArray("next_steps",
+				mcplib.Description("Planned next steps (array of strings)"),
+			),
+			mcplib.WithArray("facts",
+				mcplib.Description("Key facts as objects with subject, predicate, object (e.g. {subject:'auth', predicate:'uses', object:'better-auth'})"),
+			),
+			mcplib.WithArray("plan_steps",
+				mcplib.Description("If there's an active plan, its steps as objects with title and status (pending/completed)"),
+			),
+			mcplib.WithString("plan_title",
+				mcplib.Description("Title of the active plan if one exists"),
+			),
+		),
+		s.handleImportSession,
+	)
+
+	mcpServer.AddTool(
+		mcplib.NewTool("devmem_export",
+			mcplib.WithDescription("Export a feature's complete memory as markdown. Useful for sharing context with teammates, backing up, or feeding to another tool."),
+			mcplib.WithString("feature_name",
+				mcplib.Description("Feature to export (default: active feature)"),
+			),
+			mcplib.WithString("format",
+				mcplib.Description("Export format: markdown or json"),
+				mcplib.Enum("markdown", "json"),
+			),
+		),
+		s.handleExport,
+	)
 }
 
 // registerResources registers the 2 MCP resources.

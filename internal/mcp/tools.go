@@ -480,6 +480,321 @@ func (s *DevMemServer) handleSavePlan(ctx context.Context, req mcplib.CallToolRe
 	return mcplib.NewToolResultText(b.String()), nil
 }
 
+// handleImportSession implements devmem_import_session.
+// This is the key tool for bootstrapping memory from existing CLI sessions.
+func (s *DevMemServer) handleImportSession(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	featureName := getStringArg(req, "feature_name", "")
+	if featureName == "" {
+		return mcplib.NewToolResultError("Parameter 'feature_name' is required"), nil
+	}
+	description := getStringArg(req, "description", "")
+
+	// End current session if exists
+	if s.currentSessionID != "" {
+		_ = s.store.EndSession(s.currentSessionID)
+	}
+
+	// Start/resume the feature
+	feature, err := s.store.StartFeature(featureName, description)
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("Failed to start feature: %v", err)), nil
+	}
+
+	// Create a session for this import
+	sess, err := s.store.CreateSession(feature.ID, "import")
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("Failed to create session: %v", err)), nil
+	}
+	s.currentSessionID = sess.ID
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("# Importing session into: %s\n\n", featureName))
+
+	imported := 0
+
+	// Import decisions
+	decisions := getStringSliceArg(req, "decisions")
+	for _, d := range decisions {
+		_, err := s.store.CreateNote(feature.ID, sess.ID, d, "decision")
+		if err == nil {
+			imported++
+		}
+	}
+	if len(decisions) > 0 {
+		b.WriteString(fmt.Sprintf("- Decisions imported: %d\n", len(decisions)))
+	}
+
+	// Import progress notes
+	progressNotes := getStringSliceArg(req, "progress_notes")
+	for _, p := range progressNotes {
+		_, err := s.store.CreateNote(feature.ID, sess.ID, p, "progress")
+		if err == nil {
+			imported++
+		}
+	}
+	if len(progressNotes) > 0 {
+		b.WriteString(fmt.Sprintf("- Progress notes imported: %d\n", len(progressNotes)))
+	}
+
+	// Import blockers
+	blockers := getStringSliceArg(req, "blockers")
+	for _, bl := range blockers {
+		_, err := s.store.CreateNote(feature.ID, sess.ID, bl, "blocker")
+		if err == nil {
+			imported++
+		}
+	}
+	if len(blockers) > 0 {
+		b.WriteString(fmt.Sprintf("- Blockers imported: %d\n", len(blockers)))
+	}
+
+	// Import next steps
+	nextSteps := getStringSliceArg(req, "next_steps")
+	for _, ns := range nextSteps {
+		_, err := s.store.CreateNote(feature.ID, sess.ID, ns, "next_step")
+		if err == nil {
+			imported++
+		}
+	}
+	if len(nextSteps) > 0 {
+		b.WriteString(fmt.Sprintf("- Next steps imported: %d\n", len(nextSteps)))
+	}
+
+	// Import facts
+	args := req.GetArguments()
+	if factsRaw, ok := args["facts"]; ok {
+		if factsArr, ok := factsRaw.([]interface{}); ok {
+			factCount := 0
+			for _, item := range factsArr {
+				m, ok := item.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				subject, _ := m["subject"].(string)
+				predicate, _ := m["predicate"].(string)
+				object, _ := m["object"].(string)
+				if subject != "" && predicate != "" && object != "" {
+					_, err := s.store.CreateFact(feature.ID, sess.ID, subject, predicate, object)
+					if err == nil {
+						factCount++
+						imported++
+					}
+				}
+			}
+			if factCount > 0 {
+				b.WriteString(fmt.Sprintf("- Facts imported: %d\n", factCount))
+			}
+		}
+	}
+
+	// Import plan
+	planTitle := getStringArg(req, "plan_title", "")
+	if planTitle != "" {
+		if planStepsRaw, ok := args["plan_steps"]; ok {
+			if planStepsArr, ok := planStepsRaw.([]interface{}); ok {
+				var steps []plans.StepInput
+				var completedStepTitles []string
+				for _, item := range planStepsArr {
+					m, ok := item.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					title, _ := m["title"].(string)
+					desc, _ := m["description"].(string)
+					status, _ := m["status"].(string)
+					if title != "" {
+						steps = append(steps, plans.StepInput{Title: title, Description: desc})
+						if status == "completed" {
+							completedStepTitles = append(completedStepTitles, title)
+						}
+					}
+				}
+				if len(steps) > 0 {
+					plan, err := s.planManager.CreatePlan(feature.ID, sess.ID, planTitle, "", "import", steps)
+					if err == nil {
+						// Mark completed steps
+						planSteps, _ := s.planManager.GetPlanSteps(plan.ID)
+						for _, ps := range planSteps {
+							for _, ct := range completedStepTitles {
+								if ps.Title == ct {
+									_ = s.planManager.UpdateStepStatus(ps.ID, "completed")
+								}
+							}
+						}
+						b.WriteString(fmt.Sprintf("- Plan imported: %s (%d steps, %d completed)\n", planTitle, len(steps), len(completedStepTitles)))
+						imported += len(steps)
+					}
+				}
+			}
+		}
+	}
+
+	// Auto-link all imported memories
+	linksCreated := 0
+	if imported > 0 {
+		// Run auto-linking on the most recent notes
+		notes, _ := s.store.ListNotes(feature.ID, "", imported)
+		for _, n := range notes {
+			count, _ := s.store.AutoLink(n.ID, "note", n.Content)
+			linksCreated += count
+		}
+	}
+
+	b.WriteString(fmt.Sprintf("\n**Total imported:** %d items, %d links created\n", imported, linksCreated))
+	b.WriteString("\nMemory is now bootstrapped. Future sessions will have this context.")
+
+	return mcplib.NewToolResultText(b.String()), nil
+}
+
+// handleExport implements devmem_export.
+func (s *DevMemServer) handleExport(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	featureName := getStringArg(req, "feature_name", "")
+	format := getStringArg(req, "format", "markdown")
+
+	var feature *memory.Feature
+	var err error
+
+	if featureName != "" {
+		feature, err = s.store.GetFeature(featureName)
+		if err != nil {
+			return mcplib.NewToolResultError(fmt.Sprintf("Feature '%s' not found", featureName)), nil
+		}
+	} else {
+		feature, err = s.store.GetActiveFeature()
+		if err != nil {
+			return mcplib.NewToolResultError("No active feature. Specify feature_name or start a feature."), nil
+		}
+	}
+
+	// Get full detailed context
+	ctxData, err := s.store.GetContext(feature.ID, "detailed", nil)
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("Failed to get context: %v", err)), nil
+	}
+
+	if format == "json" {
+		return s.exportJSON(feature, ctxData)
+	}
+	return s.exportMarkdown(feature, ctxData)
+}
+
+func (s *DevMemServer) exportMarkdown(feature *memory.Feature, ctx *memory.Context) (*mcplib.CallToolResult, error) {
+	var b strings.Builder
+
+	b.WriteString(fmt.Sprintf("# Feature: %s\n\n", feature.Name))
+	b.WriteString(fmt.Sprintf("**Status:** %s\n", feature.Status))
+	if feature.Branch != "" {
+		b.WriteString(fmt.Sprintf("**Branch:** %s\n", feature.Branch))
+	}
+	if feature.Description != "" {
+		b.WriteString(fmt.Sprintf("**Description:** %s\n", feature.Description))
+	}
+	b.WriteString(fmt.Sprintf("**Created:** %s\n", feature.CreatedAt))
+	b.WriteString(fmt.Sprintf("**Last Active:** %s\n\n", feature.LastActive))
+
+	// Plan
+	if ctx.Plan != nil {
+		b.WriteString(fmt.Sprintf("## Plan: %s\n\n", ctx.Plan.Title))
+		b.WriteString(fmt.Sprintf("Progress: %d/%d steps\n\n", ctx.Plan.CompletedStep, ctx.Plan.TotalSteps))
+		// Get plan steps via the active plan for this feature
+		activePlan, err := s.planManager.GetActivePlan(feature.ID)
+		if err == nil {
+			planSteps, _ := s.planManager.GetPlanSteps(activePlan.ID)
+			for _, st := range planSteps {
+				check := "[ ]"
+				if st.Status == "completed" {
+					check = "[x]"
+				} else if st.Status == "in_progress" {
+					check = "[-]"
+				}
+				b.WriteString(fmt.Sprintf("- %s %s\n", check, st.Title))
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	// Decisions
+	b.WriteString("## Decisions\n\n")
+	decisions, _ := s.store.ListNotes(feature.ID, "decision", 50)
+	if len(decisions) == 0 {
+		b.WriteString("_No decisions recorded._\n\n")
+	}
+	for _, d := range decisions {
+		b.WriteString(fmt.Sprintf("- **[%s]** %s\n", d.CreatedAt, d.Content))
+	}
+	b.WriteString("\n")
+
+	// Facts
+	b.WriteString("## Facts (Current)\n\n")
+	if len(ctx.ActiveFacts) == 0 {
+		b.WriteString("_No facts recorded._\n\n")
+	}
+	for _, f := range ctx.ActiveFacts {
+		b.WriteString(fmt.Sprintf("- %s **%s** %s\n", f.Subject, f.Predicate, f.Object))
+	}
+	b.WriteString("\n")
+
+	// Progress
+	b.WriteString("## Progress Notes\n\n")
+	progress, _ := s.store.ListNotes(feature.ID, "progress", 50)
+	if len(progress) == 0 {
+		b.WriteString("_No progress notes._\n\n")
+	}
+	for _, p := range progress {
+		b.WriteString(fmt.Sprintf("- **[%s]** %s\n", p.CreatedAt, p.Content))
+	}
+	b.WriteString("\n")
+
+	// Blockers
+	blockers, _ := s.store.ListNotes(feature.ID, "blocker", 50)
+	if len(blockers) > 0 {
+		b.WriteString("## Blockers\n\n")
+		for _, bl := range blockers {
+			b.WriteString(fmt.Sprintf("- **[%s]** %s\n", bl.CreatedAt, bl.Content))
+		}
+		b.WriteString("\n")
+	}
+
+	// Commits
+	b.WriteString("## Commits\n\n")
+	if len(ctx.RecentCommits) == 0 {
+		b.WriteString("_No commits synced._\n\n")
+	}
+	for _, c := range ctx.RecentCommits {
+		b.WriteString(fmt.Sprintf("- `%s` %s (%s)\n", c.Hash[:min(7, len(c.Hash))], c.Message, c.CommittedAt))
+	}
+	b.WriteString("\n")
+
+	// Sessions
+	b.WriteString("## Session History\n\n")
+	for _, sess := range ctx.SessionHistory {
+		ended := "active"
+		if sess.EndedAt != "" {
+			ended = sess.EndedAt
+		}
+		b.WriteString(fmt.Sprintf("- %s → %s (%s)\n", sess.StartedAt, ended, sess.Tool))
+	}
+
+	return mcplib.NewToolResultText(b.String()), nil
+}
+
+func (s *DevMemServer) exportJSON(feature *memory.Feature, ctx *memory.Context) (*mcplib.CallToolResult, error) {
+	// For JSON, just use the detailed context as formatted text
+	// A full JSON serialization can be added later
+	var b strings.Builder
+	b.WriteString("{\n")
+	b.WriteString(fmt.Sprintf("  \"feature\": \"%s\",\n", feature.Name))
+	b.WriteString(fmt.Sprintf("  \"status\": \"%s\",\n", feature.Status))
+	b.WriteString(fmt.Sprintf("  \"branch\": \"%s\",\n", feature.Branch))
+	b.WriteString(fmt.Sprintf("  \"description\": \"%s\",\n", feature.Description))
+	b.WriteString(fmt.Sprintf("  \"commits\": %d,\n", len(ctx.RecentCommits)))
+	b.WriteString(fmt.Sprintf("  \"notes\": %d,\n", len(ctx.RecentNotes)))
+	b.WriteString(fmt.Sprintf("  \"facts\": %d,\n", len(ctx.ActiveFacts)))
+	b.WriteString(fmt.Sprintf("  \"sessions\": %d\n", len(ctx.SessionHistory)))
+	b.WriteString("}")
+	return mcplib.NewToolResultText(b.String()), nil
+}
+
 // formatContext formats a Context struct into readable markdown.
 func formatContext(ctx *memory.Context) string {
 	var b strings.Builder
