@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -11,6 +12,17 @@ import (
 	"github.com/arbaz/devmem/internal/plans"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 )
+
+func getBoolArg(req mcplib.CallToolRequest, name string, fallback bool) bool {
+	args := req.GetArguments()
+	if args == nil {
+		return fallback
+	}
+	if v, ok := args[name].(bool); ok {
+		return v
+	}
+	return fallback
+}
 
 // getStringArg extracts a string argument from the request, returning fallback if missing.
 func getStringArg(req mcplib.CallToolRequest, name, fallback string) string {
@@ -1069,4 +1081,28 @@ func (s *DevMemServer) handleForget(ctx context.Context, req mcplib.CallToolRequ
 		}
 		return mcplib.NewToolResultText(fmt.Sprintf("Deleted %s with ID %s.", typ, what)), nil
 	}
+}
+
+// handleGenerateRules implements devmem_generate_rules.
+func (s *DevMemServer) handleGenerateRules(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	output := getStringArg(req, "output", "")
+	dryRun := getBoolArg(req, "dry_run", false)
+
+	content, err := s.store.GenerateAgentsMD()
+	if err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("Failed to generate AGENTS.md: %v", err)), nil
+	}
+
+	if dryRun {
+		return mcplib.NewToolResultText("# Preview (dry run)\n\n" + content), nil
+	}
+
+	if output == "" {
+		output = s.gitRoot + "/AGENTS.md"
+	}
+	if err := os.WriteFile(output, []byte(content), 0644); err != nil {
+		return mcplib.NewToolResultError(fmt.Sprintf("Failed to write %s: %v", output, err)), nil
+	}
+
+	return mcplib.NewToolResultText(fmt.Sprintf("Generated %s from memory.\n\n%s", output, content)), nil
 }

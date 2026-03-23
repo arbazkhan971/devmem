@@ -166,7 +166,6 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 			Handler: s.handleExport,
 		},
 		server.ServerTool{
-<<<<<<< HEAD
 			Tool: mcplib.NewTool("devmem_health",
 				mcplib.WithDescription("Check memory health: conflicts, stale data, orphan notes. Returns a health score and actionable suggestions."),
 				mcplib.WithString("feature", mcplib.Description("Check health for a specific feature (default: all)")),
@@ -180,13 +179,21 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 				mcplib.WithString("feature", mcplib.Description("Scope to a specific feature")),
 			),
 			Handler: s.handleForget,
-=======
+		},
+		server.ServerTool{
 			Tool: mcplib.NewTool("devmem_analytics",
-				mcplib.WithDescription("Get development analytics and insights: session counts, commit patterns, blocker frequency, feature health. Helps understand where time is spent and what's blocked."),
+				mcplib.WithDescription("Get development analytics and insights: session counts, commit patterns, blocker frequency, feature health."),
 				mcplib.WithString("feature", mcplib.Description("Specific feature name (default: project-wide analytics)")),
 			),
 			Handler: s.handleAnalytics,
->>>>>>> worktree-agent-a0f806ba
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_generate_rules",
+				mcplib.WithDescription("Generate an AGENTS.md file from memory. Creates a universal rules file that every AI coding CLI reads."),
+				mcplib.WithString("output", mcplib.Description("Output path (default: AGENTS.md at git root)")),
+				mcplib.WithBoolean("dry_run", mcplib.Description("Preview without writing file")),
+			),
+			Handler: s.handleGenerateRules,
 		},
 	)
 }

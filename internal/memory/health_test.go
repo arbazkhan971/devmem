@@ -6,25 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arbaz/devmem/internal/memory"
 	"github.com/arbaz/devmem/internal/storage"
 )
 
-// newTestStoreWithDB creates a Store and returns both the store and the underlying DB
-// so tests can insert raw data.
-func newTestStoreWithDB(t *testing.T) (*memory.Store, *storage.DB) {
-	t.Helper()
-	dir := t.TempDir()
-	db, err := storage.NewDB(dir + "/test.db")
-	if err != nil {
-		t.Fatalf("NewDB: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-	if err := storage.Migrate(db); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
-	return memory.NewStore(db), db
-}
+// newTestStoreWithDB is defined in analytics_test.go
 
 func writer(db *storage.DB) *sql.DB {
 	return db.Writer()
