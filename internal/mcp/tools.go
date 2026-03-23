@@ -742,6 +742,22 @@ func (s *DevMemServer) handleGenerateRules(_ context.Context, req mcplib.CallToo
 	return respond("Generated %s from memory.\n\n%s", output, content)
 }
 
+func (s *DevMemServer) handleProjectMap(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	rescan := getBoolArg(req, "rescan", false)
+
+	if !rescan {
+		if pm, err := s.store.GetProjectMap(); err == nil {
+			return mcplib.NewToolResultText(memory.FormatProjectMap(pm)), nil
+		}
+	}
+
+	pm, err := s.store.ScanProject(s.gitRoot)
+	if err != nil {
+		return respondErr("Failed to scan project: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatProjectMap(pm)), nil
+}
+
 func (s *DevMemServer) handleBriefing(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	feature, err := s.store.GetActiveFeature()
 	if err != nil {
