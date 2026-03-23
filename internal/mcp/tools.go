@@ -512,52 +512,18 @@ func (s *DevMemServer) handleImportSession(ctx context.Context, req mcplib.CallT
 
 	imported := 0
 
-	// Import decisions
-	decisions := getStringSliceArg(req, "decisions")
-	for _, d := range decisions {
-		_, err := s.store.CreateNote(feature.ID, sess.ID, d, "decision")
-		if err == nil {
-			imported++
+	// Import note types
+	for _, nt := range []struct{ arg, noteType, label string }{
+		{"decisions", "decision", "Decisions"},
+		{"progress_notes", "progress", "Progress notes"},
+		{"blockers", "blocker", "Blockers"},
+		{"next_steps", "next_step", "Next steps"},
+	} {
+		notes := getStringSliceArg(req, nt.arg)
+		imported += importNotes(s.store, feature.ID, sess.ID, notes, nt.noteType)
+		if len(notes) > 0 {
+			b.WriteString(fmt.Sprintf("- %s imported: %d\n", nt.label, len(notes)))
 		}
-	}
-	if len(decisions) > 0 {
-		b.WriteString(fmt.Sprintf("- Decisions imported: %d\n", len(decisions)))
-	}
-
-	// Import progress notes
-	progressNotes := getStringSliceArg(req, "progress_notes")
-	for _, p := range progressNotes {
-		_, err := s.store.CreateNote(feature.ID, sess.ID, p, "progress")
-		if err == nil {
-			imported++
-		}
-	}
-	if len(progressNotes) > 0 {
-		b.WriteString(fmt.Sprintf("- Progress notes imported: %d\n", len(progressNotes)))
-	}
-
-	// Import blockers
-	blockers := getStringSliceArg(req, "blockers")
-	for _, bl := range blockers {
-		_, err := s.store.CreateNote(feature.ID, sess.ID, bl, "blocker")
-		if err == nil {
-			imported++
-		}
-	}
-	if len(blockers) > 0 {
-		b.WriteString(fmt.Sprintf("- Blockers imported: %d\n", len(blockers)))
-	}
-
-	// Import next steps
-	nextSteps := getStringSliceArg(req, "next_steps")
-	for _, ns := range nextSteps {
-		_, err := s.store.CreateNote(feature.ID, sess.ID, ns, "next_step")
-		if err == nil {
-			imported++
-		}
-	}
-	if len(nextSteps) > 0 {
-		b.WriteString(fmt.Sprintf("- Next steps imported: %d\n", len(nextSteps)))
 	}
 
 	// Import facts
@@ -646,6 +612,19 @@ func (s *DevMemServer) handleImportSession(ctx context.Context, req mcplib.CallT
 	return mcplib.NewToolResultText(b.String()), nil
 }
 
+// importNotes creates notes of the given type and returns the count of successfully created ones.
+func importNotes(store interface {
+	CreateNote(featureID, sessionID, content, noteType string) (*memory.Note, error)
+}, featureID, sessionID string, notes []string, noteType string) int {
+	count := 0
+	for _, n := range notes {
+		if _, err := store.CreateNote(featureID, sessionID, n, noteType); err == nil {
+			count++
+		}
+	}
+	return count
+}
+
 // handleExport implements devmem_export.
 func (s *DevMemServer) handleExport(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	featureName := getStringArg(req, "feature_name", "")
@@ -713,16 +692,18 @@ func (s *DevMemServer) exportMarkdown(feature *memory.Feature, ctx *memory.Conte
 		b.WriteString("\n")
 	}
 
-	// Decisions
-	b.WriteString("## Decisions\n\n")
-	decisions, _ := s.store.ListNotes(feature.ID, "decision", 50)
-	if len(decisions) == 0 {
-		b.WriteString("_No decisions recorded._\n\n")
+	// Note sections (decisions, progress, blockers)
+	for _, sec := range []struct{ noteType, title, emptyMsg string }{
+		{"decision", "Decisions", "_No decisions recorded._"},
+		{"progress", "Progress Notes", "_No progress notes._"},
+		{"blocker", "Blockers", ""},
+	} {
+		notes, _ := s.store.ListNotes(feature.ID, sec.noteType, 50)
+		if len(notes) == 0 && sec.emptyMsg == "" {
+			continue // skip section entirely (e.g. blockers)
+		}
+		writeNoteSection(&b, sec.title, sec.emptyMsg, notes)
 	}
-	for _, d := range decisions {
-		b.WriteString(fmt.Sprintf("- **[%s]** %s\n", d.CreatedAt, d.Content))
-	}
-	b.WriteString("\n")
 
 	// Facts
 	b.WriteString("## Facts (Current)\n\n")
@@ -733,27 +714,6 @@ func (s *DevMemServer) exportMarkdown(feature *memory.Feature, ctx *memory.Conte
 		b.WriteString(fmt.Sprintf("- %s **%s** %s\n", f.Subject, f.Predicate, f.Object))
 	}
 	b.WriteString("\n")
-
-	// Progress
-	b.WriteString("## Progress Notes\n\n")
-	progress, _ := s.store.ListNotes(feature.ID, "progress", 50)
-	if len(progress) == 0 {
-		b.WriteString("_No progress notes._\n\n")
-	}
-	for _, p := range progress {
-		b.WriteString(fmt.Sprintf("- **[%s]** %s\n", p.CreatedAt, p.Content))
-	}
-	b.WriteString("\n")
-
-	// Blockers
-	blockers, _ := s.store.ListNotes(feature.ID, "blocker", 50)
-	if len(blockers) > 0 {
-		b.WriteString("## Blockers\n\n")
-		for _, bl := range blockers {
-			b.WriteString(fmt.Sprintf("- **[%s]** %s\n", bl.CreatedAt, bl.Content))
-		}
-		b.WriteString("\n")
-	}
 
 	// Commits
 	b.WriteString("## Commits\n\n")
@@ -795,6 +755,29 @@ func (s *DevMemServer) exportJSON(feature *memory.Feature, ctx *memory.Context) 
 	return mcplib.NewToolResultText(b.String()), nil
 }
 
+// writeNoteSection writes a markdown section header and note list to b.
+func writeNoteSection(b *strings.Builder, title, emptyMsg string, notes []memory.Note) {
+	b.WriteString(fmt.Sprintf("## %s\n\n", title))
+	if len(notes) == 0 {
+		b.WriteString(emptyMsg + "\n\n")
+	}
+	for _, n := range notes {
+		b.WriteString(fmt.Sprintf("- **[%s]** %s\n", n.CreatedAt, n.Content))
+	}
+	b.WriteString("\n")
+}
+
+// writeContextSection writes a "### title" section with formatted items, skipped if empty.
+func writeContextSection[T any](b *strings.Builder, title string, items []T, format func(T) string) {
+	if len(items) == 0 {
+		return
+	}
+	b.WriteString(fmt.Sprintf("\n### %s\n", title))
+	for _, item := range items {
+		b.WriteString(format(item) + "\n")
+	}
+}
+
 // formatContext formats a Context struct into readable markdown.
 func formatContext(ctx *memory.Context) string {
 	var b strings.Builder
@@ -815,70 +798,38 @@ func formatContext(ctx *memory.Context) string {
 		b.WriteString(fmt.Sprintf("Progress: %d/%d steps completed\n", ctx.Plan.CompletedStep, ctx.Plan.TotalSteps))
 	}
 
-	if len(ctx.RecentCommits) > 0 {
-		b.WriteString("\n### Recent Commits\n")
-		for _, c := range ctx.RecentCommits {
-			b.WriteString(fmt.Sprintf("- `%s` %s (%s)\n", c.Hash[:min(7, len(c.Hash))], c.Message, c.CommittedAt))
+	writeContextSection(&b, "Recent Commits", ctx.RecentCommits, func(c memory.CommitInfo) string {
+		return fmt.Sprintf("- `%s` %s (%s)", c.Hash[:min(7, len(c.Hash))], c.Message, c.CommittedAt)
+	})
+	writeContextSection(&b, "Recent Notes", ctx.RecentNotes, func(n memory.Note) string {
+		return fmt.Sprintf("- [%s] %s (%s)", n.Type, truncate(n.Content, 100), n.CreatedAt)
+	})
+	writeContextSection(&b, "Active Facts", ctx.ActiveFacts, func(f memory.Fact) string {
+		return fmt.Sprintf("- %s %s %s", f.Subject, f.Predicate, f.Object)
+	})
+	writeContextSection(&b, "Session History", ctx.SessionHistory, func(sess memory.Session) string {
+		ended := "active"
+		if sess.EndedAt != "" {
+			ended = sess.EndedAt
 		}
-	}
-
-	if len(ctx.RecentNotes) > 0 {
-		b.WriteString("\n### Recent Notes\n")
-		for _, n := range ctx.RecentNotes {
-			b.WriteString(fmt.Sprintf("- [%s] %s (%s)\n", n.Type, truncate(n.Content, 100), n.CreatedAt))
-		}
-	}
-
-	if len(ctx.ActiveFacts) > 0 {
-		b.WriteString("\n### Active Facts\n")
-		for _, f := range ctx.ActiveFacts {
-			b.WriteString(fmt.Sprintf("- %s %s %s\n", f.Subject, f.Predicate, f.Object))
-		}
-	}
-
-	if len(ctx.SessionHistory) > 0 {
-		b.WriteString("\n### Session History\n")
-		for _, sess := range ctx.SessionHistory {
-			ended := "active"
-			if sess.EndedAt != "" {
-				ended = sess.EndedAt
-			}
-			b.WriteString(fmt.Sprintf("- %s: %s -> %s (%s)\n", sess.ID[:8], sess.StartedAt, ended, sess.Tool))
-		}
-	}
-
-	if len(ctx.Links) > 0 {
-		b.WriteString("\n### Memory Links\n")
-		for _, l := range ctx.Links {
-			b.WriteString(fmt.Sprintf("- %s:%s -> %s:%s [%s, %.1f]\n",
-				l.SourceType, l.SourceID[:8], l.TargetType, l.TargetID[:8], l.Relationship, l.Strength))
-		}
-	}
-
-	if len(ctx.FilesTouched) > 0 {
-		b.WriteString("\n### Files Touched\n")
-		for _, f := range ctx.FilesTouched {
-			b.WriteString(fmt.Sprintf("- %s\n", f))
-		}
-	}
+		return fmt.Sprintf("- %s: %s -> %s (%s)", sess.ID[:8], sess.StartedAt, ended, sess.Tool)
+	})
+	writeContextSection(&b, "Memory Links", ctx.Links, func(l memory.MemoryLink) string {
+		return fmt.Sprintf("- %s:%s -> %s:%s [%s, %.1f]",
+			l.SourceType, l.SourceID[:8], l.TargetType, l.TargetID[:8], l.Relationship, l.Strength)
+	})
+	writeContextSection(&b, "Files Touched", ctx.FilesTouched, func(f string) string {
+		return fmt.Sprintf("- %s", f)
+	})
 
 	return b.String()
 }
 
-// truncate returns the first n characters of a string, adding "..." if truncated.
+// truncate returns the first n characters of s (newlines replaced) with "..." if truncated.
 func truncate(s string, n int) string {
-	// Replace newlines for single-line display
 	s = strings.ReplaceAll(s, "\n", " ")
 	if len(s) <= n {
 		return s
 	}
 	return s[:n] + "..."
-}
-
-// min returns the smaller of two ints.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
