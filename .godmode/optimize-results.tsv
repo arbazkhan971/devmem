@@ -1,0 +1,8 @@
+round	change	metric_before	metric_after	delta%	status	lines_changed
+0	baseline	0	3.03	-	baseline	0
+1	mcp-tests+simplify-migrations+intent+search+edge-tests	3.03	3.69	21.8%	KEEP	+11tests+reduce225lines
+2	simplify-features+facts+tools+plans+git-tests	3.69	3.89	5.4%	KEEP	-103lines+6tests
+3	simplify-reader+links+consolidation+sync+15tests	3.89	4.49	15.4%	KEEP	-300lines+15tests
+4	simplify-context+sessions+notes+server+plans-merge+15tests	4.49	5.14	14.5%	KEEP	-390lines+15tests
+5	simplify-snapshot+resources+project+db+10tests	5.14	5.53	7.6%	KEEP	-116lines+10tests
+6	dead-code-removal+merge-tiny-files+27tests	5.53	6.20	12.1%	KEEP	-18lines+27tests
