@@ -944,3 +944,122 @@ func (s *DevMemServer) handleTrackFiles(ctx context.Context, req mcplib.CallTool
 	}
 	return respond("tracked %d files (%s) in %s", tracked, action, feature.Name)
 }
+
+func (s *DevMemServer) handleRelated(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	topic, errRes := requireParam(req, "topic")
+	if errRes != nil {
+		return errRes, nil
+	}
+	depth := 2
+	if a := req.GetArguments(); a != nil {
+		if v, ok := a["depth"].(float64); ok && v > 0 {
+			depth = int(v)
+		}
+	}
+	result, err := s.store.FindRelated(s.searchEngine, topic, depth)
+	if err != nil {
+		return respondErr("Failed to find related memories: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatRelatedResult(result)), nil
+}
+
+func (s *DevMemServer) handleDependencies(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	file, errRes := requireParam(req, "file")
+	if errRes != nil {
+		return errRes, nil
+	}
+	deps, err := s.store.FindDependencies(file)
+	if err != nil {
+		return respondErr("Failed to find dependencies: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatDependencies(deps)), nil
+}
+
+func (s *DevMemServer) handleDiff(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	feature, errRes := s.requireActiveFeature()
+	if errRes != nil {
+		return errRes, nil
+	}
+
+	var since time.Time
+	if sinceStr := getStringArg(req, "since", ""); sinceStr != "" {
+		// Try date-only format first, then full timestamps.
+		if t, err := time.Parse("2006-01-02", sinceStr); err == nil {
+			since = t
+		} else {
+			t, errR := parseTimestamp(sinceStr, "since")
+			if errR != nil {
+				return errR, nil
+			}
+			since = t
+		}
+	} else {
+		// Default: last session end time.
+		t, err := s.store.GetLastSessionEndTime(feature.ID)
+		if err != nil {
+			return respondErr("Failed to get last session time: %v", err)
+		}
+		if t.IsZero() {
+			// No previous session — show everything since feature creation.
+			if ct, err := time.Parse(time.DateTime, feature.CreatedAt); err == nil {
+				since = ct
+			} else {
+				since = time.Now().UTC().Add(-24 * time.Hour)
+			}
+		} else {
+			since = t
+		}
+	}
+
+	diff, err := s.store.GetDiff(feature.ID, since)
+	if err != nil {
+		return respondErr("Failed to compute diff: %v", err)
+	}
+
+	return mcplib.NewToolResultText(formatDiff(diff, since)), nil
+}
+
+func formatDiff(diff *memory.MemoryDiff, since time.Time) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Since last session (%s):\n", formatTimeAgo(since.Format(time.DateTime)))
+
+	// Facts line.
+	fmt.Fprintf(&b, "+%d facts", len(diff.NewFacts))
+	if len(diff.InvalidatedFacts) > 0 {
+		fmt.Fprintf(&b, ", -%d invalidated", len(diff.InvalidatedFacts))
+	}
+
+	// Notes line with type breakdown.
+	if len(diff.NewNotes) > 0 {
+		typeCounts := map[string]int{}
+		for _, n := range diff.NewNotes {
+			typeCounts[n.Type]++
+		}
+		fmt.Fprintf(&b, " | +%d notes", len(diff.NewNotes))
+		if len(typeCounts) > 0 {
+			b.WriteString(" (")
+			first := true
+			for typ, count := range typeCounts {
+				if !first {
+					b.WriteString(", ")
+				}
+				fmt.Fprintf(&b, "%d %s", count, typ)
+				first = false
+			}
+			b.WriteString(")")
+		}
+	} else {
+		b.WriteString(" | +0 notes")
+	}
+
+	// Commits.
+	fmt.Fprintf(&b, " | +%d commits\n", diff.NewCommits)
+
+	// Plan + links + files line.
+	fmt.Fprintf(&b, "plan: %s", diff.PlanDelta)
+	fmt.Fprintf(&b, " | +%d links", diff.NewLinks)
+	fmt.Fprintf(&b, " | +%d files", len(diff.NewFiles))
+	b.WriteString("\n")
+
+	return b.String()
+}

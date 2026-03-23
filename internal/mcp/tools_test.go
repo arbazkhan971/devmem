@@ -98,6 +98,9 @@ func TestAllToolsExist(t *testing.T) {
 		{"devmem_export"}, {"devmem_health"}, {"devmem_forget"},
 		{"devmem_analytics"}, {"devmem_generate_rules"},
 		{"devmem_snapshot"}, {"devmem_recover"},
+		{"devmem_related"}, {"devmem_dependencies"},
+		{"devmem_diff"},
+		{"devmem_onboard"}, {"devmem_changelog"}, {"devmem_share"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, ok := toolMap[tc.name]; !ok {
@@ -1079,5 +1082,137 @@ func TestHandlerErrors_RequiresActiveFeature(t *testing.T) {
 				t.Errorf("expected error about no active feature, got: %s", text)
 			}
 		})
+	}
+}
+
+func TestHandleDiff_WithNewData(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Start a feature.
+	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name":        "diff-data-test",
+		"description": "testing diff with data",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature error: %v", err)
+	}
+
+	// Add some notes and facts via remember + import_session.
+	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+		"content": "decided to use GraphQL",
+		"type":    "decision",
+	}))
+	if err != nil {
+		t.Fatalf("handleRemember error: %v", err)
+	}
+	_, err = srv.handleRemember(ctx, newReq("devmem_remember", map[string]interface{}{
+		"content": "set up project structure",
+		"type":    "progress",
+	}))
+	if err != nil {
+		t.Fatalf("handleRemember error: %v", err)
+	}
+
+	// Call diff with a past time.
+	res, err := srv.handleDiff(ctx, newReq("devmem_diff", map[string]interface{}{
+		"since": "2020-01-01",
+	}))
+	if err != nil {
+		t.Fatalf("handleDiff error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "Since last session") {
+		t.Errorf("diff should start with 'Since last session', got:\n%s", text)
+	}
+	if !strings.Contains(text, "+0 facts") && !strings.Contains(text, "facts") {
+		t.Errorf("diff should mention facts, got:\n%s", text)
+	}
+	if !strings.Contains(text, "notes") {
+		t.Errorf("diff should mention notes, got:\n%s", text)
+	}
+	if !strings.Contains(text, "commits") {
+		t.Errorf("diff should mention commits, got:\n%s", text)
+	}
+	if !strings.Contains(text, "plan:") {
+		t.Errorf("diff should mention plan, got:\n%s", text)
+	}
+	if !strings.Contains(text, "links") {
+		t.Errorf("diff should mention links, got:\n%s", text)
+	}
+	if !strings.Contains(text, "files") {
+		t.Errorf("diff should mention files, got:\n%s", text)
+	}
+}
+
+func TestHandleDiff_NoChanges(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Start a feature.
+	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name": "diff-nochange-test",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature error: %v", err)
+	}
+
+	// Diff from the future — nothing should show.
+	res, err := srv.handleDiff(ctx, newReq("devmem_diff", map[string]interface{}{
+		"since": "2099-01-01",
+	}))
+	if err != nil {
+		t.Fatalf("handleDiff error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "+0 facts") {
+		t.Errorf("diff with no changes should show +0 facts, got:\n%s", text)
+	}
+	if !strings.Contains(text, "+0 notes") {
+		t.Errorf("diff with no changes should show +0 notes, got:\n%s", text)
+	}
+	if !strings.Contains(text, "+0 commits") {
+		t.Errorf("diff with no changes should show +0 commits, got:\n%s", text)
+	}
+}
+
+func TestHandleDiff_DefaultSince(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Start a feature (this creates a session).
+	_, err := srv.handleStartFeature(ctx, newReq("devmem_start_feature", map[string]interface{}{
+		"name": "diff-default-test",
+	}))
+	if err != nil {
+		t.Fatalf("handleStartFeature error: %v", err)
+	}
+
+	// Call diff with no since parameter — should default to last session or creation time.
+	res, err := srv.handleDiff(ctx, newReq("devmem_diff", nil))
+	if err != nil {
+		t.Fatalf("handleDiff error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "Since last session") {
+		t.Errorf("diff with default since should show 'Since last session', got:\n%s", text)
+	}
+}
+
+func TestHandleDiff_NoActiveFeature(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleDiff(ctx, newReq("devmem_diff", nil))
+	if err != nil {
+		t.Fatalf("handleDiff error: %v", err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "No active feature") {
+		t.Errorf("diff without active feature should error, got:\n%s", text)
 	}
 }

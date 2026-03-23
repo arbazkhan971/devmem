@@ -237,6 +237,50 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 			),
 			Handler: s.handleProjectMap,
 		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_related",
+				mcplib.WithDescription("Find all related memories for a topic or file. Combines search + link traversal + file tracking. Returns grouped: related decisions, facts, files, and commits."),
+				mcplib.WithString("topic", mcplib.Description("File path, module name, or search term"), mcplib.Required()),
+				mcplib.WithNumber("depth", mcplib.Description("Link traversal depth (default 2)")),
+			),
+			Handler: s.handleRelated,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_dependencies",
+				mcplib.WithDescription("Track which files depend on each other based on commit co-occurrence. Files that often change together are likely dependencies."),
+				mcplib.WithString("file", mcplib.Description("File path to check"), mcplib.Required()),
+			),
+			Handler: s.handleDependencies,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_diff",
+				mcplib.WithDescription("Show what changed in memory between sessions. Compact summary of new facts, invalidated facts, notes, commits, plan progress, links, and files."),
+				mcplib.WithString("since", mcplib.Description("ISO date or datetime to diff from (default: last session end time). Examples: 2024-01-15, 2024-01-15T10:30:00Z")),
+			),
+			Handler: s.handleDiff,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_onboard",
+				mcplib.WithDescription("Generate comprehensive onboarding doc for new developers. Combines project map, decisions, facts, plans, and recent session summaries into one document."),
+				mcplib.WithString("feature", mcplib.Description("Specific feature to scope onboarding to (default: all features)")),
+			),
+			Handler: s.handleOnboard,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_changelog",
+				mcplib.WithDescription("Auto-generate changelog from memory, grouped by feature and time. Shows commits with intent and decisions made."),
+				mcplib.WithNumber("days", mcplib.Description("Period in days to cover (default: 7)")),
+				mcplib.WithString("format", mcplib.Description("Output format: markdown or slack"), mcplib.Enum("markdown", "slack")),
+			),
+			Handler: s.handleChangelog,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("devmem_share",
+				mcplib.WithDescription("Import memory from a shared file (complement to devmem_export). Reads an exported JSON or markdown file and imports features, notes, facts, and plans."),
+				mcplib.WithString("path", mcplib.Description("Path to exported JSON or markdown file"), mcplib.Required()),
+			),
+			Handler: s.handleShare,
+		},
 	)
 }
 
