@@ -1,4 +1,4 @@
-.PHONY: build test run clean
+.PHONY: build test run clean bench benchmark
 
 build:
 	go build -o bin/devmem ./cmd/devmem
@@ -11,3 +11,9 @@ run: build
 
 clean:
 	rm -rf bin/
+
+bench:
+	go build -o bin/devmem-bench ./cmd/devmem-bench
+
+benchmark: bench
+	./bin/devmem-bench -v
