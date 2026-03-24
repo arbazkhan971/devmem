@@ -101,6 +101,12 @@ func TestAllToolsExist(t *testing.T) {
 		{"memorx_related"}, {"memorx_dependencies"},
 		{"memorx_diff"},
 		{"memorx_onboard"}, {"memorx_changelog"}, {"memorx_share"},
+		// Wave 13: Smart Notifications
+		{"memorx_stale_alert"}, {"memorx_dependency_alert"}, {"memorx_plan_alert"}, {"memorx_contradiction_alert"},
+		// Wave 14: Plugin System
+		{"memorx_plugin_install"}, {"memorx_plugin_list"}, {"memorx_hook_register"}, {"memorx_webhook"},
+		// Wave 15: Competitive Moat
+		{"memorx_benchmark_compare"}, {"memorx_migrate_from"}, {"memorx_perf_report"}, {"memorx_schema_export"}, {"memorx_zero_config"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, ok := toolMap[tc.name]; !ok {
@@ -1214,5 +1220,318 @@ func TestHandleDiff_NoActiveFeature(t *testing.T) {
 	text := resultText(t, res)
 	if !strings.Contains(text, "No active feature") {
 		t.Errorf("diff without active feature should error, got:\n%s", text)
+	}
+}
+
+// Wave 13: Smart Notifications tests
+
+func TestHandleStaleAlert(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleStaleAlert(ctx, newReq("memorx_stale_alert", nil))
+	if err != nil {
+		t.Fatalf("handleStaleAlert error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "stale") && !strings.Contains(text, "No stale") {
+		t.Errorf("stale alert should mention stale features, got:\n%s", text)
+	}
+}
+
+func TestHandleStaleAlert_WithThreshold(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleStaleAlert(ctx, newReq("memorx_stale_alert", map[string]interface{}{
+		"days_threshold": float64(7),
+	}))
+	if err != nil {
+		t.Fatalf("handleStaleAlert error: %v", err)
+	}
+	text := resultText(t, res)
+	if text == "" {
+		t.Error("stale alert should return non-empty response")
+	}
+}
+
+func TestHandleDependencyAlert(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleDependencyAlert(ctx, newReq("memorx_dependency_alert", map[string]interface{}{
+		"files": []interface{}{"auth/tokens.go", "billing/payment.go"},
+	}))
+	if err != nil {
+		t.Fatalf("handleDependencyAlert error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "Dependency Alerts") {
+		t.Errorf("dependency alert should contain header, got:\n%s", text)
+	}
+	if !strings.Contains(text, "auth/tokens.go") {
+		t.Errorf("dependency alert should mention the file, got:\n%s", text)
+	}
+}
+
+func TestHandleDependencyAlert_NoFiles(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleDependencyAlert(ctx, newReq("memorx_dependency_alert", nil))
+	if err != nil {
+		t.Fatalf("handleDependencyAlert error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "required") {
+		t.Errorf("should error when no files provided, got:\n%s", text)
+	}
+}
+
+func TestHandlePlanAlert(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handlePlanAlert(ctx, newReq("memorx_plan_alert", nil))
+	if err != nil {
+		t.Fatalf("handlePlanAlert error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "Plan Alerts") && !strings.Contains(text, "No active plans") {
+		t.Errorf("plan alert should mention plans, got:\n%s", text)
+	}
+}
+
+func TestHandleContradictionAlert(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	// Start feature and add a fact
+	srv.handleStartFeature(ctx, newReq("memorx_start_feature", map[string]interface{}{"name": "contradiction-test"}))
+
+	res, err := srv.handleContradictionAlert(ctx, newReq("memorx_contradiction_alert", map[string]interface{}{
+		"content": "we should use JWT for auth",
+	}))
+	if err != nil {
+		t.Fatalf("handleContradictionAlert error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "contradiction") && !strings.Contains(text, "No contradictions") {
+		t.Errorf("contradiction alert should mention contradictions, got:\n%s", text)
+	}
+}
+
+func TestHandleContradictionAlert_NoContent(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleContradictionAlert(ctx, newReq("memorx_contradiction_alert", nil))
+	if err != nil {
+		t.Fatalf("handleContradictionAlert error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "required") {
+		t.Errorf("should require content parameter, got:\n%s", text)
+	}
+}
+
+// Wave 14: Plugin System tests
+
+func TestHandlePluginInstall(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handlePluginInstall(ctx, newReq("memorx_plugin_install", map[string]interface{}{
+		"url": "https://github.com/test-user/test-plugin",
+	}))
+	if err != nil {
+		t.Fatalf("handlePluginInstall error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "Plugin installed") {
+		t.Errorf("should confirm installation, got:\n%s", text)
+	}
+	if !strings.Contains(text, "test-plugin") {
+		t.Errorf("should contain plugin name, got:\n%s", text)
+	}
+	// Clean up
+	home, _ := os.UserHomeDir()
+	os.RemoveAll(filepath.Join(home, ".memorx", "plugins", "test-plugin"))
+}
+
+func TestHandlePluginList(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handlePluginList(ctx, newReq("memorx_plugin_list", nil))
+	if err != nil {
+		t.Fatalf("handlePluginList error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "plugin") && !strings.Contains(text, "Plugin") && !strings.Contains(text, "No plugins") {
+		t.Errorf("should mention plugins, got:\n%s", text)
+	}
+}
+
+func TestHandleHookRegister(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleHookRegister(ctx, newReq("memorx_hook_register", map[string]interface{}{
+		"event":   "on_commit",
+		"command": "echo hello",
+	}))
+	if err != nil {
+		t.Fatalf("handleHookRegister error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "Hook registered") {
+		t.Errorf("should confirm hook registration, got:\n%s", text)
+	}
+	if !strings.Contains(text, "on_commit") {
+		t.Errorf("should contain event name, got:\n%s", text)
+	}
+	// Clean up
+	home, _ := os.UserHomeDir()
+	os.Remove(filepath.Join(home, ".memorx", "hooks.json"))
+}
+
+func TestHandleWebhook_Register(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleWebhook(ctx, newReq("memorx_webhook", map[string]interface{}{
+		"action": "register",
+		"url":    "https://example.com/webhook",
+		"event":  "on_commit",
+	}))
+	if err != nil {
+		t.Fatalf("handleWebhook error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "Webhook registered") {
+		t.Errorf("should confirm webhook registration, got:\n%s", text)
+	}
+	// Clean up
+	home, _ := os.UserHomeDir()
+	os.Remove(filepath.Join(home, ".memorx", "webhooks.json"))
+}
+
+func TestHandleWebhook_List(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleWebhook(ctx, newReq("memorx_webhook", map[string]interface{}{
+		"action": "list",
+	}))
+	if err != nil {
+		t.Fatalf("handleWebhook error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "webhook") && !strings.Contains(text, "Webhook") && !strings.Contains(text, "No webhooks") {
+		t.Errorf("should mention webhooks, got:\n%s", text)
+	}
+}
+
+// Wave 15: Competitive Moat tests
+
+func TestHandleBenchmarkCompare(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleBenchmarkCompare(ctx, newReq("memorx_benchmark_compare", nil))
+	if err != nil {
+		t.Fatalf("handleBenchmarkCompare error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "Benchmark") {
+		t.Errorf("should contain benchmark results, got:\n%s", text)
+	}
+	if !strings.Contains(text, "memorX") {
+		t.Errorf("should mention memorX in comparison, got:\n%s", text)
+	}
+}
+
+func TestHandlePerfReport(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handlePerfReport(ctx, newReq("memorx_perf_report", nil))
+	if err != nil {
+		t.Fatalf("handlePerfReport error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "Performance Report") {
+		t.Errorf("should contain performance report header, got:\n%s", text)
+	}
+	if !strings.Contains(text, "Fastest") || !strings.Contains(text, "Slowest") {
+		t.Errorf("should show fastest and slowest, got:\n%s", text)
+	}
+}
+
+func TestHandleSchemaExport(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleSchemaExport(ctx, newReq("memorx_schema_export", nil))
+	if err != nil {
+		t.Fatalf("handleSchemaExport error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "Schema Export") {
+		t.Errorf("should contain schema export header, got:\n%s", text)
+	}
+	if !strings.Contains(text, "features") {
+		t.Errorf("should contain features table, got:\n%s", text)
+	}
+}
+
+func TestHandleSchemaExport_ToFile(t *testing.T) {
+	srv, dir := setupTestServer(t)
+	ctx := context.Background()
+
+	outPath := filepath.Join(dir, "schema.md")
+	res, err := srv.handleSchemaExport(ctx, newReq("memorx_schema_export", map[string]interface{}{
+		"output": outPath,
+	}))
+	if err != nil {
+		t.Fatalf("handleSchemaExport error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "exported") {
+		t.Errorf("should confirm export, got:\n%s", text)
+	}
+	if _, err := os.Stat(outPath); os.IsNotExist(err) {
+		t.Error("schema file should be created")
+	}
+}
+
+func TestHandleZeroConfig(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleZeroConfig(ctx, newReq("memorx_zero_config", nil))
+	if err != nil {
+		t.Fatalf("handleZeroConfig error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "Zero-Config") {
+		t.Errorf("should contain zero-config header, got:\n%s", text)
+	}
+}
+
+func TestHandleMigrateFrom_UnsupportedSource(t *testing.T) {
+	srv, _ := setupTestServer(t)
+	ctx := context.Background()
+
+	res, err := srv.handleMigrateFrom(ctx, newReq("memorx_migrate_from", map[string]interface{}{
+		"source": "mem0",
+	}))
+	if err != nil {
+		t.Fatalf("handleMigrateFrom error: %v", err)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "not yet supported") {
+		t.Errorf("should say mem0 not supported, got:\n%s", text)
 	}
 }

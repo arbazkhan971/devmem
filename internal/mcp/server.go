@@ -281,6 +281,22 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 			),
 			Handler: s.handleShare,
 		},
+		// Wave 13: Smart Notifications
+		server.ServerTool{Tool: mcplib.NewTool("memorx_stale_alert", mcplib.WithDescription("Find features inactive for N+ days with unresolved blockers."), mcplib.WithNumber("days_threshold", mcplib.Description("Number of days of inactivity to flag (default 14)"))), Handler: s.handleStaleAlert},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_dependency_alert", mcplib.WithDescription("For each file, check dependencies and other features that reference these files."), mcplib.WithArray("files", mcplib.Description("Array of file paths you are about to change"), mcplib.Required())), Handler: s.handleDependencyAlert},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_plan_alert", mcplib.WithDescription("For all active plans: check velocity, find stalled ones, find nearly-complete ones.")), Handler: s.handlePlanAlert},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_contradiction_alert", mcplib.WithDescription("Check if content contradicts any existing active facts."), mcplib.WithString("content", mcplib.Description("Content to check for contradictions"), mcplib.Required())), Handler: s.handleContradictionAlert},
+		// Wave 14: Plugin System
+		server.ServerTool{Tool: mcplib.NewTool("memorx_plugin_install", mcplib.WithDescription("Install a plugin from a GitHub repo URL."), mcplib.WithString("url", mcplib.Description("GitHub repo URL"), mcplib.Required())), Handler: s.handlePluginInstall},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_plugin_list", mcplib.WithDescription("List installed plugins.")), Handler: s.handlePluginList},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_hook_register", mcplib.WithDescription("Register a hook to run on specific events."), mcplib.WithString("event", mcplib.Description("Event to hook into"), mcplib.Required(), mcplib.Enum("on_commit", "on_session_start", "on_session_end", "on_remember")), mcplib.WithString("command", mcplib.Description("Command to run"), mcplib.Required())), Handler: s.handleHookRegister},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_webhook", mcplib.WithDescription("Manage webhook registrations."), mcplib.WithString("action", mcplib.Description("Action to perform"), mcplib.Required(), mcplib.Enum("register", "list", "remove")), mcplib.WithString("url", mcplib.Description("Webhook URL")), mcplib.WithString("event", mcplib.Description("Event to trigger webhook"))), Handler: s.handleWebhook},
+		// Wave 15: Competitive Moat
+		server.ServerTool{Tool: mcplib.NewTool("memorx_benchmark_compare", mcplib.WithDescription("Run the built-in benchmark and compare results.")), Handler: s.handleBenchmarkCompare},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_migrate_from", mcplib.WithDescription("Import from other memory systems."), mcplib.WithString("source", mcplib.Description("Source system"), mcplib.Required(), mcplib.Enum("mem0", "zep", "keepgoing", "claude_memory")), mcplib.WithString("path", mcplib.Description("Path to the source data"))), Handler: s.handleMigrateFrom},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_perf_report", mcplib.WithDescription("Benchmark all tool response times.")), Handler: s.handlePerfReport},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_schema_export", mcplib.WithDescription("Export the full SQLite schema and table row counts."), mcplib.WithString("output", mcplib.Description("Output path (default: stdout)"))), Handler: s.handleSchemaExport},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_zero_config", mcplib.WithDescription("Auto-detect installed MCP clients and show configuration instructions.")), Handler: s.handleZeroConfig},
 	)
 }
 

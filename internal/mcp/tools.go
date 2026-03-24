@@ -1063,3 +1063,149 @@ func formatDiff(diff *memory.MemoryDiff, since time.Time) string {
 
 	return b.String()
 }
+
+// Wave 13: Smart Notifications handlers
+
+func (s *DevMemServer) handleStaleAlert(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	days := 14
+	if a := req.GetArguments(); a != nil {
+		if v, ok := a["days_threshold"].(float64); ok && v > 0 {
+			days = int(v)
+		}
+	}
+	alerts, err := s.store.FindStaleAlerts(days)
+	if err != nil {
+		return respondErr("Failed to find stale alerts: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatStaleAlerts(alerts)), nil
+}
+
+func (s *DevMemServer) handleDependencyAlert(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	files := getStringSliceArg(req, "files")
+	if len(files) == 0 {
+		return mcplib.NewToolResultError("Parameter 'files' is required (array of file paths)"), nil
+	}
+	alerts, err := s.store.FindDependencyAlerts(files)
+	if err != nil {
+		return respondErr("Failed to check dependencies: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatDependencyAlerts(alerts)), nil
+}
+
+func (s *DevMemServer) handlePlanAlert(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	alerts, err := s.store.FindPlanAlerts(s.planManager)
+	if err != nil {
+		return respondErr("Failed to analyze plans: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatPlanAlerts(alerts)), nil
+}
+
+func (s *DevMemServer) handleContradictionAlert(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	content, errRes := requireParam(req, "content")
+	if errRes != nil {
+		return errRes, nil
+	}
+	alerts, err := s.store.FindContradictions(content)
+	if err != nil {
+		return respondErr("Failed to check contradictions: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatContradictions(alerts)), nil
+}
+
+// Wave 14: Plugin System handlers
+
+func (s *DevMemServer) handlePluginInstall(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	url, errRes := requireParam(req, "url")
+	if errRes != nil {
+		return errRes, nil
+	}
+	info, err := memory.InstallPlugin(url)
+	if err != nil {
+		return respondErr("Failed to install plugin: %v", err)
+	}
+	return respond("# Plugin installed\n\n- Name: %s\n- Version: %s\n- Status: %s\n- Path: %s\n\nNote: v1 creates directory structure only.", info.Name, info.Version, info.Status, info.Path)
+}
+
+func (s *DevMemServer) handlePluginList(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	plugins, err := memory.ListPlugins()
+	if err != nil {
+		return respondErr("Failed to list plugins: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatPluginList(plugins)), nil
+}
+
+func (s *DevMemServer) handleHookRegister(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	event, errRes := requireParam(req, "event")
+	if errRes != nil {
+		return errRes, nil
+	}
+	command, errRes := requireParam(req, "command")
+	if errRes != nil {
+		return errRes, nil
+	}
+	if err := memory.RegisterHook(event, command); err != nil {
+		return respondErr("Failed to register hook: %v", err)
+	}
+	hooks, _ := memory.ListHooks()
+	return respond("# Hook registered\n\n- Event: %s\n- Command: `%s`\n\n%s", event, command, memory.FormatHooks(hooks))
+}
+
+func (s *DevMemServer) handleWebhook(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	action, errRes := requireParam(req, "action")
+	if errRes != nil {
+		return errRes, nil
+	}
+	url := getStringArg(req, "url", "")
+	event := getStringArg(req, "event", "")
+	result, err := memory.ManageWebhook(action, url, event)
+	if err != nil {
+		return respondErr("Webhook error: %v", err)
+	}
+	return mcplib.NewToolResultText(result), nil
+}
+
+// Wave 15: Competitive Moat handlers
+
+func (s *DevMemServer) handleBenchmarkCompare(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	result, err := memory.RunBenchmarkCompare(s.db)
+	if err != nil {
+		return respondErr("Benchmark failed: %v", err)
+	}
+	return mcplib.NewToolResultText(result.Comparison), nil
+}
+
+func (s *DevMemServer) handleMigrateFrom(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	source, errRes := requireParam(req, "source")
+	if errRes != nil {
+		return errRes, nil
+	}
+	path := getStringArg(req, "path", "")
+	result, err := memory.MigrateFrom(s.store, source, path)
+	if err != nil {
+		return respondErr("Migration failed: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatMigrationResult(result)), nil
+}
+
+func (s *DevMemServer) handlePerfReport(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return mcplib.NewToolResultText(memory.RunPerfReport(s.db)), nil
+}
+
+func (s *DevMemServer) handleSchemaExport(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	schema, err := memory.ExportSchema(s.db)
+	if err != nil {
+		return respondErr("Schema export failed: %v", err)
+	}
+	output := getStringArg(req, "output", "")
+	if output != "" {
+		if err := os.WriteFile(output, []byte(schema), 0644); err != nil {
+			return respondErr("Failed to write schema to %s: %v", output, err)
+		}
+		return respond("Schema exported to %s", output)
+	}
+	return mcplib.NewToolResultText(schema), nil
+}
+
+func (s *DevMemServer) handleZeroConfig(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return mcplib.NewToolResultText(memory.ZeroConfig()), nil
+}
