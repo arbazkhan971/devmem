@@ -351,6 +351,28 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 			),
 			Handler: s.handleReplay,
 		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_what_if",
+				mcplib.WithDescription("Explore alternate decision paths. 'What if we had chosen REST instead of gRPC?' Finds the decision, shows all items created after it and related to the same topic."),
+				mcplib.WithString("decision_query", mcplib.Description("Search for the decision to undo"), mcplib.Required()),
+			),
+			Handler: s.handleWhatIf,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_memory_graph",
+				mcplib.WithDescription("Show all connections between memories as a graph. Returns node/edge counts and clusters grouped by feature."),
+				mcplib.WithString("feature", mcplib.Description("Filter to a specific feature name")),
+				mcplib.WithString("format", mcplib.Description("Output format: summary or detailed"), mcplib.Enum("summary", "detailed")),
+			),
+			Handler: s.handleMemoryGraph,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_code_impact",
+				mcplib.WithDescription("Predict what breaks if you change a file. Shows features that touched this file, decisions that reference it, and file dependencies."),
+				mcplib.WithString("file", mcplib.Description("File path to analyze"), mcplib.Required()),
+			),
+			Handler: s.handleCodeImpact,
+		},
 	)
 }
 

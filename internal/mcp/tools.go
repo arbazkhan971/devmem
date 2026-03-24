@@ -1115,3 +1115,37 @@ func (s *DevMemServer) handleContextBudget(_ context.Context, req mcplib.CallToo
 	return mcplib.NewToolResultText(b.String()), nil
 }
 
+func (s *DevMemServer) handleWhatIf(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	query, errRes := requireParam(req, "decision_query")
+	if errRes != nil {
+		return errRes, nil
+	}
+	result, err := s.store.WhatIf(query)
+	if err != nil {
+		return respondErr("Failed to analyze what-if: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatWhatIf(result)), nil
+}
+
+func (s *DevMemServer) handleMemoryGraph(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	feature := getStringArg(req, "feature", "")
+	format := getStringArg(req, "format", "summary")
+	result, err := s.store.MemoryGraph(feature)
+	if err != nil {
+		return respondErr("Failed to build memory graph: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatGraph(result, format)), nil
+}
+
+func (s *DevMemServer) handleCodeImpact(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	file, errRes := requireParam(req, "file")
+	if errRes != nil {
+		return errRes, nil
+	}
+	result, err := s.store.CodeImpact(file)
+	if err != nil {
+		return respondErr("Failed to analyze code impact: %v", err)
+	}
+	return mcplib.NewToolResultText(memory.FormatCodeImpact(result)), nil
+}
+
