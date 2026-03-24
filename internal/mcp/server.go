@@ -336,6 +336,21 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 		server.ServerTool{Tool: mcplib.NewTool("memorx_token_tracker", mcplib.WithDescription("Track token usage per tool call."), mcplib.WithString("tool", mcplib.Description("Tool name"), mcplib.Required()), mcplib.WithNumber("input_tokens", mcplib.Description("Input tokens")), mcplib.WithNumber("output_tokens", mcplib.Description("Output tokens"))), Handler: s.handleTokenTracker},
 		server.ServerTool{Tool: mcplib.NewTool("memorx_learning", mcplib.WithDescription("Persist something the user taught the AI."), mcplib.WithString("content", mcplib.Description("What the user taught"), mcplib.Required())), Handler: s.handleLearning},
 		server.ServerTool{Tool: mcplib.NewTool("memorx_context_budget", mcplib.WithDescription("Load most relevant context within a token budget."), mcplib.WithNumber("budget", mcplib.Description("Maximum tokens"), mcplib.Required()), mcplib.WithString("feature", mcplib.Description("Specific feature name"))), Handler: s.handleContextBudget},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_time_travel",
+				mcplib.WithDescription("Query memory at any point in time. 'What did I know about auth on March 15?' Returns the complete state of facts, notes, and plans as of a given timestamp."),
+				mcplib.WithString("feature", mcplib.Description("Feature name to time-travel into (default: active feature)")),
+				mcplib.WithString("as_of", mcplib.Description("ISO date to query (e.g. 2026-03-15 or 2026-03-15T10:30:00Z)"), mcplib.Required()),
+			),
+			Handler: s.handleTimeTravel,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_replay",
+				mcplib.WithDescription("Replay a past session's decisions step by step. Shows chronological list of notes, facts, and commits created during the session."),
+				mcplib.WithString("session_id", mcplib.Description("Session ID to replay (default: last completed session)")),
+			),
+			Handler: s.handleReplay,
+		},
 	)
 }
 
