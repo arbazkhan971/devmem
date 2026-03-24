@@ -103,6 +103,12 @@ func TestAllToolsExist(t *testing.T) {
 		{"memorx_onboard"}, {"memorx_changelog"}, {"memorx_share"},
 		{"memorx_review_context"}, {"memorx_review_risk"}, {"memorx_review_checklist"},
 		{"memorx_focus_time"}, {"memorx_velocity"}, {"memorx_interruptions"}, {"memorx_weekly_report"},
+		// Predictive Intelligence
+		{"memorx_predict_blocker"}, {"memorx_risk_score"}, {"memorx_burndown"}, {"memorx_compare"}, {"memorx_summarize_period"},
+		// Self-Healing Memory
+		{"memorx_deduplicate"}, {"memorx_integrity_check"}, {"memorx_auto_link_code"},
+		// Workflow Integration
+		{"memorx_standup"}, {"memorx_branch_context"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, ok := toolMap[tc.name]; !ok {

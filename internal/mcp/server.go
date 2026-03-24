@@ -373,6 +373,76 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 			),
 			Handler: s.handleCodeImpact,
 		},
+		// --- Predictive Intelligence ---
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_predict_blocker",
+				mcplib.WithDescription("Analyze patterns to predict if current feature will hit a blocker. Checks unresolved dependencies, test coverage, and similar feature history."),
+				mcplib.WithString("feature", mcplib.Description("Feature name (default: active feature)")),
+			),
+			Handler: s.handlePredictBlocker,
+		},
+		server.ServerTool{
+			Tool:    mcplib.NewTool("memorx_risk_score", mcplib.WithDescription("Score every active feature for risk (0-100). Factors: inactivity, blockers, plan completion, stale facts, orphan notes.")),
+			Handler: s.handleRiskScore,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_burndown",
+				mcplib.WithDescription("Auto-generate burndown chart data from plan velocity. Shows completed steps, velocity (steps/day), and projected completion date."),
+				mcplib.WithString("feature", mcplib.Description("Feature name (default: active feature)")),
+			),
+			Handler: s.handleBurndown,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_compare",
+				mcplib.WithDescription("Compare two features side by side: notes, facts, commits, plan progress, sessions, blockers."),
+				mcplib.WithString("feature_a", mcplib.Description("First feature name"), mcplib.Required()),
+				mcplib.WithString("feature_b", mcplib.Description("Second feature name"), mcplib.Required()),
+			),
+			Handler: s.handleCompare,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_summarize_period",
+				mcplib.WithDescription("Summarize what happened across all features in a time period. Groups commits, decisions, and blockers by feature."),
+				mcplib.WithString("period", mcplib.Description("Time period: today, week, or month"), mcplib.Enum("today", "week", "month")),
+			),
+			Handler: s.handleSummarizePeriod,
+		},
+		// --- Self-Healing Memory ---
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_deduplicate",
+				mcplib.WithDescription("Find and merge duplicate/near-duplicate memories. Detects notes with >80% word overlap within same feature."),
+				mcplib.WithString("feature", mcplib.Description("Scope to a specific feature")),
+				mcplib.WithBoolean("dry_run", mcplib.Description("Preview only, don't merge (default true)")),
+			),
+			Handler: s.handleDeduplicate,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_integrity_check",
+				mcplib.WithDescription("Verify all memory links, facts, and references are valid. Checks for broken links, orphan sessions, and orphan records."),
+				mcplib.WithBoolean("fix", mcplib.Description("Auto-fix issues if true (default false)")),
+			),
+			Handler: s.handleIntegrityCheck,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_auto_link_code",
+				mcplib.WithDescription("Auto-link memories to code files they mention. Scans notes for file path patterns (*.go, *.ts, *.py, etc.) and creates links."),
+				mcplib.WithString("feature", mcplib.Description("Scope to a specific feature")),
+			),
+			Handler: s.handleAutoLinkCode,
+		},
+		// --- Workflow Integration ---
+		server.ServerTool{
+			Tool:    mcplib.NewTool("memorx_standup", mcplib.WithDescription("Generate daily standup from yesterday's sessions: what was done, what's planned, and blockers.")),
+			Handler: s.handleStandup,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_branch_context",
+				mcplib.WithDescription("Auto-save/restore context per git branch. Maps branches to features so switching branches auto-switches features."),
+				mcplib.WithString("action", mcplib.Description("Action: save, restore, or list"), mcplib.Required(), mcplib.Enum("save", "restore", "list")),
+				mcplib.WithString("branch", mcplib.Description("Git branch name (required for save/restore)")),
+			),
+			Handler: s.handleBranchContext,
+		},
 	)
 }
 

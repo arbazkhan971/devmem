@@ -43,7 +43,32 @@ func Migrate(db *DB) error {
 			return fmt.Errorf("apply v6 migration: %w", err)
 		}
 	}
+	if currentVersion < 7 {
+		if err := applyV7BranchContext(w); err != nil {
+			return fmt.Errorf("apply v7 migration: %w", err)
+		}
+	}
 	return nil
+}
+
+func applyV7BranchContext(w *sql.DB) error {
+	tx, err := w.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS branch_context (id TEXT PRIMARY KEY, branch TEXT NOT NULL UNIQUE, feature_name TEXT NOT NULL, saved_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+		`CREATE INDEX IF NOT EXISTS idx_branch_context_branch ON branch_context(branch)`,
+	} {
+		if _, err := tx.Exec(stmt); err != nil {
+			return fmt.Errorf("exec: %w", err)
+		}
+	}
+	if _, err := tx.Exec("INSERT OR IGNORE INTO schema_version (version) VALUES (7)"); err != nil {
+		return fmt.Errorf("record version: %w", err)
+	}
+	return tx.Commit()
 }
 
 func applyV6ErrorDebug(w *sql.DB) error {
