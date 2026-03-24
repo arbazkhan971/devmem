@@ -281,6 +281,56 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 			),
 			Handler: s.handleShare,
 		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_review_context",
+				mcplib.WithDescription("Enrich a diff/PR with decision history from memory. For each file, searches notes, facts, and commits related to it."),
+				mcplib.WithArray("files", mcplib.Description("Array of file paths in the diff"), mcplib.Required()),
+			),
+			Handler: s.handleReviewContext,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_review_risk",
+				mcplib.WithDescription("Flag risky changes based on memory patterns. For each file: counts changes, checks for blockers, checks for recent refactors. Returns risk score per file."),
+				mcplib.WithArray("files", mcplib.Description("Array of file paths to assess"), mcplib.Required()),
+			),
+			Handler: s.handleReviewRisk,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_review_checklist",
+				mcplib.WithDescription("Auto-generate a review checklist from memory. Uses active decisions, blockers, facts, and pending plan steps."),
+				mcplib.WithString("feature", mcplib.Description("Feature name (default: active feature)")),
+			),
+			Handler: s.handleReviewChecklist,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_focus_time",
+				mcplib.WithDescription("Track time spent per feature from session start/end deltas. Shows hours and session counts per feature."),
+				mcplib.WithString("feature", mcplib.Description("Filter to a specific feature")),
+				mcplib.WithNumber("days", mcplib.Description("Number of days to look back (default 7)")),
+			),
+			Handler: s.handleFocusTime,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_velocity",
+				mcplib.WithDescription("Measure plan completion velocity. For features with active plans: calculate steps completed per day and estimate time remaining."),
+				mcplib.WithString("feature", mcplib.Description("Filter to a specific feature")),
+			),
+			Handler: s.handleVelocity,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_interruptions",
+				mcplib.WithDescription("Track context switches between features. Shows switch count and longest uninterrupted focus stretch."),
+				mcplib.WithNumber("days", mcplib.Description("Number of days to analyze (default 7)")),
+			),
+			Handler: s.handleInterruptions,
+		},
+		server.ServerTool{
+			Tool: mcplib.NewTool("memorx_weekly_report",
+				mcplib.WithDescription("Auto-generate weekly dev summary. Aggregates features touched, commits by type, decisions, blockers, and session time."),
+				mcplib.WithNumber("days", mcplib.Description("Period in days to cover (default 7)")),
+			),
+			Handler: s.handleWeeklyReport,
+		},
 	)
 }
 
