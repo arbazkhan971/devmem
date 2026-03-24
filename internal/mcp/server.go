@@ -331,6 +331,11 @@ func (s *DevMemServer) registerTools(srv *server.MCPServer) {
 			),
 			Handler: s.handleWeeklyReport,
 		},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_prompt_memory", mcplib.WithDescription("Store which prompts worked well."), mcplib.WithString("prompt", mcplib.Description("The prompt text"), mcplib.Required()), mcplib.WithString("effectiveness", mcplib.Description("How well it worked"), mcplib.Enum("good", "bad", "neutral")), mcplib.WithString("outcome", mcplib.Description("What happened"))), Handler: s.handlePromptMemory},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_anti_patterns", mcplib.WithDescription("Track what the AI got wrong and why."), mcplib.WithString("description", mcplib.Description("What went wrong"), mcplib.Required()), mcplib.WithString("category", mcplib.Description("Category"), mcplib.Enum("hallucination", "stale_context", "wrong_approach", "repeated_failure"))), Handler: s.handleAntiPatterns},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_token_tracker", mcplib.WithDescription("Track token usage per tool call."), mcplib.WithString("tool", mcplib.Description("Tool name"), mcplib.Required()), mcplib.WithNumber("input_tokens", mcplib.Description("Input tokens")), mcplib.WithNumber("output_tokens", mcplib.Description("Output tokens"))), Handler: s.handleTokenTracker},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_learning", mcplib.WithDescription("Persist something the user taught the AI."), mcplib.WithString("content", mcplib.Description("What the user taught"), mcplib.Required())), Handler: s.handleLearning},
+		server.ServerTool{Tool: mcplib.NewTool("memorx_context_budget", mcplib.WithDescription("Load most relevant context within a token budget."), mcplib.WithNumber("budget", mcplib.Description("Maximum tokens"), mcplib.Required()), mcplib.WithString("feature", mcplib.Description("Specific feature name"))), Handler: s.handleContextBudget},
 	)
 }
 

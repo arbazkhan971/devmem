@@ -38,7 +38,41 @@ func Migrate(db *DB) error {
 			return fmt.Errorf("apply v5 migration: %w", err)
 		}
 	}
+	if currentVersion < 6 {
+		if err := applyV6ErrorDebug(w); err != nil {
+			return fmt.Errorf("apply v6 migration: %w", err)
+		}
+	}
 	return nil
+}
+
+func applyV6ErrorDebug(w *sql.DB) error {
+	tx, err := w.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS error_log (id TEXT PRIMARY KEY, feature_id TEXT NOT NULL, session_id TEXT, error_message TEXT NOT NULL, file_path TEXT, line_number INTEGER, cause TEXT, resolution TEXT, resolved INTEGER DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+		`CREATE INDEX IF NOT EXISTS idx_errors_feature ON error_log(feature_id)`,
+		`CREATE TABLE IF NOT EXISTS test_results (id TEXT PRIMARY KEY, feature_id TEXT NOT NULL, session_id TEXT, test_name TEXT NOT NULL, passed INTEGER NOT NULL, error_message TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+		`CREATE INDEX IF NOT EXISTS idx_test_results_feature ON test_results(feature_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_test_results_name ON test_results(test_name)`,
+		`CREATE TABLE IF NOT EXISTS linked_projects (id TEXT PRIMARY KEY, project_path TEXT NOT NULL, project_name TEXT NOT NULL, relationship TEXT DEFAULT 'related', created_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(project_path))`,
+	} {
+		if _, err := tx.Exec(stmt); err != nil {
+			return fmt.Errorf("exec: %w", err)
+		}
+	}
+	if _, err := tx.Exec(`CREATE VIRTUAL TABLE IF NOT EXISTS error_log_fts USING fts5(error_message, cause, resolution, tokenize='porter unicode61')`); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("create error_log_fts: %w", err)
+		}
+	}
+	if _, err := tx.Exec("INSERT OR IGNORE INTO schema_version (version) VALUES (6)"); err != nil {
+		return fmt.Errorf("record version: %w", err)
+	}
+	return tx.Commit()
 }
 
 func applyV5AIOptimization(w *sql.DB) error {
