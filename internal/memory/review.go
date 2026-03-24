@@ -33,10 +33,6 @@ type ChecklistItem struct {
 	Source string
 }
 
-// ConflictPair represents two contradicting entries.
-type ConflictPair struct {
-	Topic, NoteA, NoteB, ValueA, ValueB string
-}
 
 func fileBaseName(path string) string {
 	if idx := strings.LastIndex(path, "/"); idx >= 0 {
