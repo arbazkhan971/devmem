@@ -33,7 +33,29 @@ func Migrate(db *DB) error {
 			return fmt.Errorf("apply v4 migration: %w", err)
 		}
 	}
+	if currentVersion < 5 {
+		if err := applyV5AIOptimization(w); err != nil {
+			return fmt.Errorf("apply v5 migration: %w", err)
+		}
+	}
 	return nil
+}
+
+func applyV5AIOptimization(w *sql.DB) error {
+	tx, err := w.Begin()
+	if err != nil { return fmt.Errorf("begin transaction: %w", err) }
+	defer tx.Rollback()
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS prompt_memory (id TEXT PRIMARY KEY, feature_id TEXT, prompt TEXT NOT NULL, effectiveness TEXT DEFAULT 'unknown', outcome TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+		`CREATE TABLE IF NOT EXISTS token_usage (id TEXT PRIMARY KEY, session_id TEXT, tool_name TEXT NOT NULL, input_tokens INTEGER DEFAULT 0, output_tokens INTEGER DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+		`CREATE TABLE IF NOT EXISTS learnings (id TEXT PRIMARY KEY, feature_id TEXT, content TEXT NOT NULL, source_tool TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+	} {
+		if _, err := tx.Exec(stmt); err != nil { return fmt.Errorf("exec: %w", err) }
+	}
+	if _, err := tx.Exec("INSERT OR IGNORE INTO schema_version (version) VALUES (5)"); err != nil {
+		return fmt.Errorf("record version: %w", err)
+	}
+	return tx.Commit()
 }
 
 func applyV1(w *sql.DB) error {

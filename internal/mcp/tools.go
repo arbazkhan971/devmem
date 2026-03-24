@@ -1063,3 +1063,4 @@ func formatDiff(diff *memory.MemoryDiff, since time.Time) string {
 
 	return b.String()
 }
+
